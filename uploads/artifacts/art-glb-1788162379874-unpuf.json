@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788162379874-unpuf",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788162379874-unpuf",
+  "originalName": "part-arm-left.glb",
+  "bytes": 20,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T07:46:19.874Z"
+}

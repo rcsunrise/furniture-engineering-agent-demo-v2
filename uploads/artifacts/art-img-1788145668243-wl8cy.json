@@ -1,0 +1,12 @@
+{
+  "id": "art-img-1788145668243-wl8cy",
+  "workspaceId": "ws-test-r2",
+  "kind": "reference_image",
+  "format": "png",
+  "mimeType": "image/png",
+  "downloadUrl": "http://127.0.0.1:19003/api/worker/artifacts/file/art-img-1788145668243-wl8cy",
+  "originalName": "test_sofa_r2_local.png",
+  "bytes": 70,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T03:07:48.244Z"
+}

@@ -1,0 +1,8 @@
+{
+  "name": "jiajuagent-v1",
+  "description": "Imported from GitHub: rcsunrise/furniture-engineering-agent-demo-v1",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

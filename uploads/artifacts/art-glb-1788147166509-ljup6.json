@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788147166509-ljup6",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788147166509-ljup6",
+  "originalName": "part-sofa-arm.glb",
+  "bytes": 20,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T03:32:46.509Z"
+}

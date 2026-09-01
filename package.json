@@ -1,0 +1,38 @@
+{
+  "name": "furniture-engineering-agent-demo-v1",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server/index.ts",
+    "build": "vite build && esbuild src/server/index.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "start": "node dist/server.cjs"
+  },
+  "dependencies": {
+    "@google/genai": "^2.16.0",
+    "@thorvg/webcanvas": "^1.0.0",
+    "@vitejs/plugin-react": "^4.3.4",
+    "cors": "^2.8.5",
+    "esbuild": "^0.28.2",
+    "express": "^5.1.0",
+    "multer": "^2.0.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "three": "^0.179.1",
+    "xlsx": "^0.18.5",
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.3",
+    "@types/multer": "^2.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.3",
+    "@types/react-dom": "^19.0.2",
+    "@types/three": "^0.179.0",
+    "concurrently": "^9.1.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.1"
+  }
+}

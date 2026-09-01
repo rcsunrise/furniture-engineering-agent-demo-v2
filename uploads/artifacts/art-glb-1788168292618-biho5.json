@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788168292618-biho5",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788168292618-biho5",
+  "originalName": "part-arm-left-g44d.glb",
+  "bytes": 20,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T09:24:52.618Z"
+}

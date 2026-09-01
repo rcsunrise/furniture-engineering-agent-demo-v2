@@ -1,0 +1,12 @@
+{
+  "id": "art-img-1788144802886-bld8p",
+  "workspaceId": "ws-test-r2",
+  "kind": "reference_image",
+  "format": "png",
+  "mimeType": "image/png",
+  "downloadUrl": "https://jiajuagent-v1-292903497895.asia-east1.run.app/api/worker/artifacts/file/art-img-1788144802886-bld8p",
+  "originalName": "test_sofa_r2.png",
+  "bytes": 70,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T02:53:22.886Z"
+}

@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788155363328-7k2pr",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788155363328-7k2pr",
+  "originalName": "part-g44a-test.glb",
+  "bytes": 20,
+  "productionTruth": false,
+  "createdAt": "2026-08-31T05:49:23.328Z"
+}

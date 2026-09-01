@@ -1,0 +1,152 @@
+{
+  "20": {
+    "inputs": {
+      "image": "example.png",
+      "upload": "image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Primary Input Image"
+    }
+  },
+  "21": {
+    "inputs": {
+      "filename_prefix": "mesh/default",
+      "mesh": [
+        "22",
+        0
+      ]
+    },
+    "class_type": "SaveGLB",
+    "_meta": {
+      "title": "Save GLB Output"
+    }
+  },
+  "22": {
+    "inputs": {
+      "latent": [
+        "23",
+        0
+      ],
+      "num_chunks": 8000,
+      "octree_resolution": 256,
+      "algorithm": "surface net",
+      "threshold": 0.6
+    },
+    "class_type": "VoxelToMesh",
+    "_meta": {
+      "title": "Voxel To Mesh"
+    }
+  },
+  "23": {
+    "inputs": {
+      "samples": [
+        "26",
+        0
+      ],
+      "vae": [
+        "29",
+        0
+      ]
+    },
+    "class_type": "VAEDecode3D",
+    "_meta": {
+      "title": "3D VAE Decode"
+    }
+  },
+  "24": {
+    "inputs": {
+      "clip_vision_output": [
+        "27",
+        0
+      ]
+    },
+    "class_type": "Conditioning",
+    "_meta": {
+      "title": "Conditioning"
+    }
+  },
+  "25": {
+    "inputs": {
+      "resolution": 4096,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatent3D",
+    "_meta": {
+      "title": "Empty Latent 3D"
+    }
+  },
+  "26": {
+    "inputs": {
+      "seed": 42,
+      "steps": 30,
+      "cfg": 7,
+      "sampler_name": "euler",
+      "scheduler": "normal",
+      "denoise": 1,
+      "model": [
+        "28",
+        0
+      ],
+      "positive": [
+        "24",
+        0
+      ],
+      "latent_image": [
+        "25",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "Sampler"
+    }
+  },
+  "27": {
+    "inputs": {
+      "image": [
+        "20",
+        0
+      ],
+      "clip_vision": [
+        "29",
+        1
+      ]
+    },
+    "class_type": "CLIPVisionEncode",
+    "_meta": {
+      "title": "CLIP Vision Encode"
+    }
+  },
+  "28": {
+    "inputs": {
+      "model": [
+        "29",
+        0
+      ],
+      "shift": 1
+    },
+    "class_type": "ModelSampling3D",
+    "_meta": {
+      "title": "Model Sampling 3D"
+    }
+  },
+  "29": {
+    "inputs": {
+      "ckpt_name": "hunyuan_3d_v2.1.safetensors"
+    },
+    "class_type": "CheckpointLoaderSimple",
+    "_meta": {
+      "title": "Load 3D Checkpoint"
+    }
+  },
+  "30": {
+    "inputs": {
+      "image": "aux_reference.png"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "Auxiliary Secondary Image (Must NOT be runtime input)"
+    }
+  }
+}

@@ -1,0 +1,6 @@
+id,name,type,material,size_x,size_y,size_z,pos_x,pos_y,pos_z,explode_x,explode_y,explode_z
+FRAME-001,Base frame,frame,wood,900,720,120,0,0,120,0,0,-180
+SEAT-001,Seat cushion,seat,foam,760,560,140,0,-20,330,0,0,180
+BACK-001,Backrest,backrest,foam+frame,760,180,520,0,290,650,0,220,80
+ARM-L,Left arm,armrest,foam+frame,120,700,430,-440,0,380,-260,0,0
+ARM-R,Right arm,armrest,foam+frame,120,700,430,440,0,380,260,0,0
