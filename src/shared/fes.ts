@@ -215,9 +215,16 @@ export const FurnitureEngineeringSchema = z.object({
 });
 
 export type FurnitureEngineeringData = z.infer<typeof FurnitureEngineeringSchema>;
+export type FurnitureEngineering = FurnitureEngineeringData;
 
 export type IssueSeverity = "error" | "warning" | "info";
+export type Component = z.infer<typeof ComponentSchema>;
+export type ComponentObservation = Component;
+export type FESComponent = Component;
+export type FESDocument = FurnitureEngineeringData;
+
 export type ValidationLevel = "pass" | "warning" | "fail";
+export type ValidationReport = EngineeringValidationReport;
 
 export interface ValidationIssue {
   code: string;

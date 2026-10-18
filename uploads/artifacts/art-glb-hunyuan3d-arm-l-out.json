@@ -1,0 +1,21 @@
+{
+  "id": "art-glb-hunyuan3d-arm-l-out",
+  "workspaceId": "default-workspace",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-hunyuan3d-arm-l-out",
+  "originalName": "mesh_ARM-L-OUT_hunyuan3d_v2.1.glb",
+  "bytes": 17352,
+  "vertexCount": 1408,
+  "productionTruth": false,
+  "provenance": {
+    "provider": "comfyui_hunyuan3d",
+    "workflowVersion": "hunyuan3d-v2.1-part-v1.api.json",
+    "modelOrCheckpoint": "hunyuan_3d_v2.1.safetensors",
+    "partId": "part-sofa-arm",
+    "canonicalComponentId": "ARM-L-OUT",
+    "seed": 428913,
+    "createdAt": "2026-09-04T03:51:45.336Z"
+  }
+}

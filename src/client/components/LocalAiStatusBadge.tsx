@@ -45,13 +45,40 @@ export function LocalAiStatusBadge() {
   };
 
   useEffect(() => {
-    fetchStatus();
-    const timer = setInterval(fetchStatus, 5000);
-    return () => clearInterval(timer);
+    let mounted = true;
+    const load = async () => {
+      try {
+        const res = await fetch("/api/worker/status");
+        if (!res.ok) return;
+        const json = await res.json();
+        if (mounted && json.success && json.data) {
+          setStatus(json.data);
+          setError(null);
+        }
+      } catch (err: any) {
+        if (mounted) {
+          setError(err?.message || "Failed to fetch status");
+        }
+      }
+    };
+    load();
+    const timer = setInterval(load, 8000);
+    return () => {
+      mounted = false;
+      clearInterval(timer);
+    };
   }, []);
 
   const topStatus: TopStatus = status?.topStatus || "OFFLINE";
   const colors = BADGE_COLORS[topStatus] || BADGE_COLORS["OFFLINE"];
+
+  const statusTextMap: Record<TopStatus, string> = {
+    READY: "就绪",
+    BUSY: "忙碌中",
+    DEGRADED: "降级运行",
+    OFFLINE: "离线",
+    "NOT CONFIGURED": "未配置",
+  };
 
   return (
     <div style={{ position: "relative", display: "inline-block" }}>
@@ -73,7 +100,7 @@ export function LocalAiStatusBadge() {
           outline: "none",
           transition: "all 0.2s ease",
         }}
-        title="Click to toggle Local AI status details"
+        title="点击查看本地 AI 节点运行状态详情"
       >
         <span
           style={{
@@ -84,7 +111,7 @@ export function LocalAiStatusBadge() {
             boxShadow: `0 0 6px ${colors.border}`,
           }}
         />
-        <span>LOCAL AI</span>
+        <span>本地 AI</span>
         <span
           style={{
             fontSize: 10,
@@ -93,7 +120,7 @@ export function LocalAiStatusBadge() {
             background: "rgba(255, 255, 255, 0.1)",
           }}
         >
-          {topStatus}
+          {statusTextMap[topStatus] || topStatus}
         </span>
       </button>
 
@@ -126,7 +153,7 @@ export function LocalAiStatusBadge() {
               borderBottom: "1px solid #2a2a35",
             }}
           >
-            <strong style={{ color: "#fff", fontSize: 14 }}>Local AI Runtime Status</strong>
+            <strong style={{ color: "#fff", fontSize: 14 }}>本地 AI 运行状态</strong>
             <button
               onClick={() => setIsOpen(false)}
               style={{
@@ -143,37 +170,37 @@ export function LocalAiStatusBadge() {
 
           {error && (
             <div style={{ color: "#ff8a80", fontSize: 12, marginBottom: 8 }}>
-              Status Error: {error}
+              状态获取错误: {error}
             </div>
           )}
 
           <div style={{ display: "grid", gap: 8 }}>
             <StatusRow
-              label="Local Worker"
-              value={status?.localWorker || "offline"}
+              label="本地 Worker 客户端"
+              value={status?.localWorker === "online" ? "在线 (online)" : status?.localWorker === "busy" ? "繁忙 (busy)" : "离线 (offline)"}
               highlight={status?.localWorker === "online" ? "#81c784" : status?.localWorker === "busy" ? "#4fc3f7" : "#ff8a80"}
             />
             <StatusRow
-              label="ComfyUI"
-              value={status?.comfyUI || "offline"}
+              label="ComfyUI 服务"
+              value={status?.comfyUI === "ready" ? "就绪 (ready)" : status?.comfyUI === "disabled" ? "已禁用" : "未启动/离线"}
               highlight={status?.comfyUI === "ready" ? "#81c784" : status?.comfyUI === "disabled" ? "#aaa" : "#ff8a80"}
             />
             <StatusRow
-              label="Hunyuan3D"
-              value={status?.hunyuan3D || "unavailable"}
+              label="混元 3D 工作流"
+              value={status?.hunyuan3D === "ready" ? "就绪 (ready)" : status?.hunyuan3D === "workflow_invalid" ? "工作流无效" : "不可用"}
               highlight={status?.hunyuan3D === "ready" ? "#81c784" : "#ff8a80"}
             />
             <StatusRow
-              label="Current Job"
-              value={status?.currentJob || "idle"}
+              label="当前作业任务"
+              value={status?.currentJob === "running" ? "生成中 (running)" : status?.currentJob === "queued" ? "排队中 (queued)" : status?.currentJob === "completed" ? "已完成 (completed)" : "空闲 (idle)"}
               highlight={status?.currentJob === "running" ? "#4fc3f7" : status?.currentJob === "completed" ? "#81c784" : "#e0e0e0"}
             />
             <StatusRow
-              label="Last Heartbeat"
-              value={status?.lastHeartbeat ? new Date(status.lastHeartbeat).toLocaleTimeString() : "None"}
+              label="最新心跳时间"
+              value={status?.lastHeartbeat ? new Date(status.lastHeartbeat).toLocaleTimeString() : "无心跳记录"}
             />
             <div style={{ marginTop: 4 }}>
-              <div style={{ color: "#aaa", fontSize: 11, marginBottom: 4 }}>Capabilities:</div>
+              <div style={{ color: "#aaa", fontSize: 11, marginBottom: 4 }}>支持功能特性:</div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
                 {status?.capabilities && status.capabilities.length > 0 ? (
                   status.capabilities.map((cap) => (
@@ -192,7 +219,7 @@ export function LocalAiStatusBadge() {
                     </span>
                   ))
                 ) : (
-                  <span style={{ fontSize: 11, color: "#777" }}>None</span>
+                  <span style={{ fontSize: 11, color: "#777" }}>暂无</span>
                 )}
               </div>
             </div>
@@ -200,7 +227,7 @@ export function LocalAiStatusBadge() {
             {status?.activeWorker && (
               <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid #2a2a35", fontSize: 11, color: "#aaa" }}>
                 <div>Worker: {status.activeWorker.name} ({status.activeWorker.workerId})</div>
-                <div>Version: {status.activeWorker.version}</div>
+                <div>版本: {status.activeWorker.version}</div>
               </div>
             )}
           </div>

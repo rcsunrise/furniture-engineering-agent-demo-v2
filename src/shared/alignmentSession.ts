@@ -31,6 +31,8 @@ export const EngineeringAlignmentSessionSchema = z.object({
   engineeringDocumentId: z.string(),
   sku: z.string(),
   componentId: z.string(),
+  canonicalComponentId: z.string().optional(),
+  bindingMethod: z.enum(["EXPLICIT_CANONICAL", "EXPLICIT_ALIAS", "USER_MAPPED", "UNRESOLVED"]).optional(),
 
   status: AlignmentSessionStatusSchema,
 
@@ -60,6 +62,8 @@ export function createAlignmentSession(params: {
   engineeringDocumentId?: string;
   sku?: string;
   componentId?: string;
+  canonicalComponentId?: string;
+  bindingMethod?: "EXPLICIT_CANONICAL" | "EXPLICIT_ALIAS" | "USER_MAPPED" | "UNRESOLVED";
   geometrySource?: string;
 }): EngineeringAlignmentSession {
   const now = Date.now();
@@ -76,6 +80,8 @@ export function createAlignmentSession(params: {
     status = "READY";
   }
 
+  const canonCompId = params.canonicalComponentId || params.componentId || "";
+
   return {
     sessionId: id,
     workspaceId: params.workspaceId || "default-workspace",
@@ -84,6 +90,8 @@ export function createAlignmentSession(params: {
     engineeringDocumentId: params.engineeringDocumentId || "",
     sku: params.sku || "",
     componentId: params.componentId || "",
+    canonicalComponentId: canonCompId,
+    bindingMethod: params.bindingMethod || (hasComp ? "EXPLICIT_CANONICAL" : "UNRESOLVED"),
     status,
     geometrySource: params.geometrySource || "proxy_fallback",
     createdAt: now,

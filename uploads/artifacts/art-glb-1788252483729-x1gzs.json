@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788252483729-x1gzs",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788252483729-x1gzs",
+  "originalName": "part-arm-left-g44d.glb",
+  "bytes": 20,
+  "productionTruth": false,
+  "createdAt": "2026-09-01T08:48:03.729Z"
+}

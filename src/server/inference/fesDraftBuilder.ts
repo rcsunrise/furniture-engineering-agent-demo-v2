@@ -2,8 +2,9 @@ import type {
   ReferenceObservationDocument,
   GeometryInferenceReport,
   FesGeometryDraft,
+  ReferenceViewType,
 } from "../../shared/g3_inference.js";
-import type { FurnitureEngineeringSchema } from "../../shared/fes.js";
+import type { FurnitureEngineeringData } from "../../shared/fes.js";
 import { CalibrationAdapter } from "./calibrationAdapter.js";
 
 /**
@@ -16,7 +17,7 @@ export class FesDraftBuilder {
   public buildDraft(
     obsDoc: ReferenceObservationDocument,
     report: GeometryInferenceReport
-  ): { draft: FesGeometryDraft; fes: FurnitureEngineeringSchema } {
+  ): { draft: FesGeometryDraft; fes: FurnitureEngineeringData } {
     const W = report.overallWidthMm.value;
     const D = report.overallDepthMm.value;
     const H = report.overallHeightMm.value;
@@ -34,8 +35,8 @@ export class FesDraftBuilder {
     const armHeight = report.resolvedValues["armrest_height"]?.value ?? 600;
 
     const draftComponents: FesGeometryDraft["components"] = [];
-    const fesComponents: FurnitureEngineeringSchema["components"] = [];
-    const fesCadProfiles: FurnitureEngineeringSchema["cadProfiles"] = [];
+    const fesComponents: FurnitureEngineeringData["components"] = [];
+    const fesCadProfiles: FurnitureEngineeringData["cadProfiles"] = [];
 
     // Base position offsets in FES engineering space
     // X range: [-W/2, +W/2]
@@ -43,7 +44,7 @@ export class FesDraftBuilder {
     // Z range: [0, H]
 
     for (const c of obsDoc.components) {
-      const cId = (c.componentIdDraft || c.id || "").toUpperCase();
+      const cId = (c.componentIdDraft || (c as any).id || "").toUpperCase();
       let posX = 0;
       let posY = 0;
       let posZ = 0;
@@ -152,7 +153,8 @@ export class FesDraftBuilder {
       // Convert contour 0..1 to CAD profiles
       if (c.contours && Array.isArray(c.contours)) {
         for (const cnt of c.contours) {
-          const calPoints = calAdapter.calibrateContour(cnt.points, cnt.view);
+          const viewKey: ReferenceViewType = (cnt.view === "side" ? "side_left" : cnt.view) as ReferenceViewType;
+          const calPoints = calAdapter.calibrateContour(cnt.points, viewKey);
           calPoints.forEach((pt, pIdx) => {
             fesCadProfiles.push({
               profileId: cnt.profileId,
@@ -225,7 +227,6 @@ export class FesDraftBuilder {
         id: c.componentIdDraft,
         name: c.componentIdDraft,
         type: c.semanticType,
-        category: c.semanticType,
         shape: {
           proxy: proxyShape as any,
           symmetryGroup: c.symmetryGroup,
@@ -247,6 +248,7 @@ export class FesDraftBuilder {
           y: posY < 0 ? -100 : posY > 0 ? 100 : 0,
           z: posZ > 400 ? 100 : 0,
         },
+        rotation: { x: 0, y: 0, z: 0 },
         profiles: compProfiles,
         geometryMode: geometryMode as any,
         loftGroup,
@@ -306,11 +308,11 @@ export class FesDraftBuilder {
       overallHeight: report.overallHeightMm,
       components: draftComponents,
       inferenceReport: report,
-      loftSections: defaultLoftSections,
-      softSurfaceParams: defaultSoftParams,
+      loftSections: defaultLoftSections as any,
+      softSurfaceParams: defaultSoftParams as any,
     };
 
-    const fes: FurnitureEngineeringSchema = {
+    const fes: FurnitureEngineeringData = {
       schemaVersion: "1.0",
       sku: obsDoc.sku,
       units: "mm",
@@ -326,9 +328,11 @@ export class FesDraftBuilder {
       },
       warnings: [],
       components: fesComponents,
+      shapeProfiles: [],
       cadProfiles: fesCadProfiles,
-      loftSections: defaultLoftSections,
-      softSurfaceParams: defaultSoftParams,
+      loftSections: defaultLoftSections as any,
+      softSurfaceParams: defaultSoftParams as any,
+      topology2D: [],
     };
 
     return { draft, fes };

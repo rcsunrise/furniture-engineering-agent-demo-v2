@@ -631,14 +631,13 @@ export function parseWorkbook(inputData: Buffer | ArrayBuffer | Uint8Array, file
       const innerProf = getRowVal(r, ["inner_profile", "innerprofile", "内轮廓"]);
       const seamProf = getRowVal(r, ["seam_profile", "seamprofile", "缝线轮廓"]);
 
-      const profilesObj = {
-        ...(frontProf && { front: String(frontProf).trim() }),
-        ...(sideProf && { side: String(sideProf).trim() }),
-        ...(topProf && { top: String(topProf).trim() }),
-        ...(outerProf && { outer: String(outerProf).trim() }),
-        ...(innerProf && { inner: String(innerProf).trim() }),
-        ...(seamProf && { seam: String(seamProf).trim() }),
-      };
+      const profilesObj: Record<string, string> = {};
+      if (frontProf) profilesObj.front = String(frontProf).trim();
+      if (sideProf) profilesObj.side = String(sideProf).trim();
+      if (topProf) profilesObj.top = String(topProf).trim();
+      if (outerProf) profilesObj.outer = String(outerProf).trim();
+      if (innerProf) profilesObj.inner = String(innerProf).trim();
+      if (seamProf) profilesObj.seam = String(seamProf).trim();
       const profiles = Object.keys(profilesObj).length > 0 ? profilesObj : undefined;
 
       // Shape Attributes

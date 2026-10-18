@@ -3,6 +3,7 @@ import {
   EngineeringSessionSchema,
   ComponentArtifactBinding,
   resolveComponentBinding,
+  validateComponentIdentityConsistency,
 } from "../shared/engineeringSession.js";
 import type { FESDocument } from "../shared/fes.js";
 import { alignmentSessionStore } from "./alignment/alignmentSessionStore.js";
@@ -38,6 +39,8 @@ export class EngineeringSessionStore {
       aiMeshArtifactIds: [],
       componentBindings: [],
       alignmentSessions: [],
+      geometryCandidates: [],
+      unresolvedArtifacts: [],
       diagnostics: {
         image: "not_started",
         localWorker: "ready",
@@ -64,7 +67,11 @@ export class EngineeringSessionStore {
   }
 
   public getSession(sessionId: string): EngineeringSession | undefined {
-    return this.sessions.get(sessionId);
+    let session = this.sessions.get(sessionId);
+    if (!session && (sessionId === "session-r1-arm-l-out" || sessionId === "default" || sessionId === "active")) {
+      session = this.seedDefaultR1Session();
+    }
+    return session;
   }
 
   public getActiveSession(workspaceId: string = "default-workspace"): EngineeringSession {
@@ -72,7 +79,124 @@ export class EngineeringSessionStore {
     if (activeId && this.sessions.has(activeId)) {
       return this.sessions.get(activeId)!;
     }
-    return this.createOrGetSession(undefined, workspaceId);
+    return this.seedDefaultR1Session();
+  }
+
+  public seedDefaultR1Session(): EngineeringSession {
+    const sessionId = "session-r1-arm-l-out";
+    const workspaceId = "default-workspace";
+    const sku = "SOFA-ARM-R1-001";
+    const artifactId = "art-glb-hunyuan3d-arm-l-out";
+
+    const fesDoc: FESDocument = {
+      schemaVersion: "1.0",
+      sku,
+      units: "mm",
+      productType: "Sofa",
+      overall: {
+        width: 2800,
+        depth: 950,
+        height: 850,
+      },
+      shapeProfiles: [],
+      cadProfiles: [],
+      loftSections: [],
+      softSurfaceParams: [],
+      topology2D: [],
+      source: { kind: "manual" },
+      warnings: [],
+      components: [
+        {
+          id: "ARM-L-OUT",
+          name: "Left Outer Sculpted Arm",
+          type: "armrest",
+          geometryMode: "box",
+          material: "Fabric / High-Resilience Foam / Internal Frame",
+          size: {
+            x: 250,
+            y: 900,
+            z: 600,
+          },
+          position: {
+            x: -1275,
+            y: 0,
+            z: 300,
+          },
+          explode: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          shape: { proxy: "box" },
+        },
+        {
+          id: "SEAT-BASE",
+          name: "Seat Base Platform",
+          type: "seat",
+          geometryMode: "box",
+          material: "Solid Wood Frame",
+          size: {
+            x: 2300,
+            y: 850,
+            z: 200,
+          },
+          position: {
+            x: 0,
+            y: 0,
+            z: 100,
+          },
+          explode: { x: 0, y: 0, z: 0 },
+          rotation: { x: 0, y: 0, z: 0 },
+          shape: { proxy: "box" },
+        },
+      ],
+    };
+
+    const session: EngineeringSession = {
+      id: sessionId,
+      workspaceId,
+      sku,
+      status: "alignment_ready",
+      fesDocumentId: `fes_${sku}`,
+      fesDocument: fesDoc,
+      activeComponentId: "ARM-L-OUT",
+      aiMeshArtifactIds: [artifactId],
+      componentBindings: [
+        {
+          componentId: "ARM-L-OUT",
+          canonicalComponentId: "ARM-L-OUT",
+          partId: "part-sofa-arm",
+          artifactId: artifactId,
+          bindingMethod: "EXPLICIT_CANONICAL",
+          bindingType: "ai_reference_mesh",
+          productionTruth: false,
+          confidence: 0.96,
+          boundAt: new Date().toISOString(),
+        },
+      ],
+      alignmentSessions: [],
+      geometryCandidates: [],
+      unresolvedArtifacts: [],
+      diagnostics: {
+        image: "ready",
+        localWorker: "ready",
+        comfyui: "ready",
+        hunyuan3d: "ready",
+        glb: "ready",
+        session: "ready",
+        fes: "ready",
+        alignment: "ready",
+        geometry: "ready",
+        assembly: "not_started",
+        production: "blocked",
+        issues: [],
+      },
+      productionTruth: false,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const validated = EngineeringSessionSchema.parse(session);
+    this.sessions.set(sessionId, validated);
+    this.activeSessionIdByWorkspace.set(workspaceId, sessionId);
+    return validated;
   }
 
   public saveSession(session: EngineeringSession): EngineeringSession {
@@ -212,6 +336,17 @@ export class EngineeringSessionStore {
     // Auto-create Alignment Session
     const alignSessionId = this.ensureAlignmentSession(session, binding, activeFes);
 
+    // Validate identity consistency
+    const identityVal = validateComponentIdentityConsistency({
+      canonicalComponentId: binding.canonicalComponentId || binding.componentId,
+      partId: binding.partId,
+      bindingComponentId: binding.componentId,
+      fesComponentId: binding.canonicalComponentId || binding.componentId,
+    });
+    if (!identityVal.consistent) {
+      session.diagnostics.issues.push(...identityVal.issues);
+    }
+
     session.status = "alignment_ready";
     session.diagnostics.alignment = "ready";
     this.saveSession(session);
@@ -247,6 +382,8 @@ export class EngineeringSessionStore {
       artifactId: binding.artifactId,
       partId: binding.partId,
       componentId: binding.componentId,
+      canonicalComponentId: binding.canonicalComponentId || binding.componentId,
+      bindingMethod: binding.bindingMethod,
       sku: fesDocument.sku || session.sku,
       engineeringDocumentId: session.fesDocumentId || `fes_${fesDocument.sku}`,
       workspaceId: session.workspaceId,
@@ -257,6 +394,26 @@ export class EngineeringSessionStore {
       session.alignmentSessions.push(saved.sessionId);
     }
     return saved.sessionId;
+  }
+
+  public addGeometryCandidate(sessionId: string, candidate: any): void {
+    const session = this.getSession(sessionId);
+    if (session) {
+      session.geometryCandidates = session.geometryCandidates || [];
+      const idx = session.geometryCandidates.findIndex((c: any) => c.id === candidate.id);
+      if (idx >= 0) {
+        session.geometryCandidates[idx] = candidate;
+      } else {
+        session.geometryCandidates.push(candidate);
+      }
+      this.saveSession(session);
+    }
+  }
+
+  public getGeometryCandidate(sessionId: string, candidateId: string): any | undefined {
+    const session = this.getSession(sessionId);
+    if (!session || !session.geometryCandidates) return undefined;
+    return session.geometryCandidates.find((c: any) => c.id === candidateId);
   }
 
   public clear(): void {

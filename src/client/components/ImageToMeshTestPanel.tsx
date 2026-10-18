@@ -3,29 +3,101 @@ import { FurnitureEngineering } from "../../shared/fes.js";
 
 export interface ImageToMeshTestPanelProps {
   fes?: FurnitureEngineering | null;
+  isActive?: boolean;
   onLoadGlbTo3d?: (glbUrl: string, artifact: any) => void;
   onRunAlignment?: (artifactId: string, partId: string, componentId: string) => void;
+  onJobStatusChange?: (status: string | null) => void;
+  onLoadSample?: (sampleName: string) => void;
 }
 
-export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: ImageToMeshTestPanelProps) {
+const STORAGE_KEY = "fes_image_to_mesh_state_v1";
+
+function loadPersistedMeshState() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch (e) {
+    console.warn("Failed to load persisted image to mesh state:", e);
+    return null;
+  }
+}
+
+function savePersistedMeshState(state: any) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  } catch (e) {
+    try {
+      // If image base64 exceeds quota, drop it and keep the rest
+      const shallow = { ...state, imagePreview: null };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(shallow));
+    } catch (e2) {
+      console.warn("Failed to save image to mesh state:", e2);
+    }
+  }
+}
+
+export function ImageToMeshTestPanel({
+  fes,
+  isActive = true,
+  onLoadGlbTo3d,
+  onRunAlignment,
+  onJobStatusChange,
+  onLoadSample,
+}: ImageToMeshTestPanelProps) {
+  // Initialize from persisted storage if available
+  const persisted = useRef(loadPersistedMeshState()).current;
+
   // Input fields
-  const [partId, setPartId] = useState("part-arm-left");
-  const [mappedComponentId, setMappedComponentId] = useState("ARM-L-OUT");
-  const [provider, setProvider] = useState("comfyui_hunyuan3d");
-  const [preset, setPreset] = useState("hunyuan3d-v2.1-part-v1.api.json");
-  const [seed, setSeed] = useState<number>(42);
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageArtifactUrl, setImageArtifactUrl] = useState<string>("");
+  const [partId, setPartId] = useState<string>(() => persisted?.partId || "part-arm-left");
+  const [mappedComponentId, setMappedComponentId] = useState<string>(() => persisted?.mappedComponentId || "ARM-L-OUT");
+  const [provider, setProvider] = useState<string>(() => persisted?.provider || "comfyui_hunyuan3d");
+  const [preset, setPreset] = useState<string>(() => persisted?.preset || "hunyuan3d-v2.1-part-v1.api.json");
+  const [seed, setSeed] = useState<number>(() => persisted?.seed ?? 42);
+  const [imagePreview, setImagePreview] = useState<string | null>(() => persisted?.imagePreview || null);
+  const [imageArtifactUrl, setImageArtifactUrl] = useState<string>(() => persisted?.imageArtifactUrl || "");
   const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Job state
-  const [activeJob, setActiveJob] = useState<any | null>(null);
+  const [activeJob, setActiveJob] = useState<any | null>(() => persisted?.activeJob || null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [elapsedMs, setElapsedMs] = useState<number>(0);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
+  // Local GLB Upload & Preview state
+  const [customArtifactUri, setCustomArtifactUri] = useState<string | null>(() => persisted?.customArtifactUri || null);
+  const [isUploadingLocalGlb, setIsUploadingLocalGlb] = useState(false);
+  const [glbLoadError, setGlbLoadError] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const glbFileInputRef = useRef<HTMLInputElement>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<any>(null);
+
+  // Save changes to localStorage
+  useEffect(() => {
+    savePersistedMeshState({
+      partId,
+      mappedComponentId,
+      provider,
+      preset,
+      seed,
+      imagePreview,
+      imageArtifactUrl,
+      activeJob,
+      customArtifactUri,
+    });
+  }, [
+    partId,
+    mappedComponentId,
+    provider,
+    preset,
+    seed,
+    imagePreview,
+    imageArtifactUrl,
+    activeJob,
+    customArtifactUri,
+  ]);
 
   // Clean up timer on unmount
   useEffect(() => {
@@ -34,7 +106,46 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
     };
   }, []);
 
-  // Poll job status when activeJob is queued, claimed, or running
+  // Broadcast real-time job status to parent / header
+  useEffect(() => {
+    onJobStatusChange?.(activeJob?.status || null);
+  }, [activeJob?.status, onJobStatusChange]);
+
+  // Viewport-aware driver: when becoming active, immediately query active job status
+  const prevActiveRef = useRef(isActive);
+  useEffect(() => {
+    if (isActive && !prevActiveRef.current) {
+      if (activeJob?.id) {
+        fetch(`/api/worker/jobs/${encodeURIComponent(activeJob.id)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((json) => {
+            if (json?.success && json.data) {
+              setActiveJob(json.data);
+            }
+          })
+          .catch((err) => console.warn("Viewport activation sync failed:", err));
+      }
+      // Trigger canvas/viewport layout event
+      window.dispatchEvent(new Event("resize"));
+    }
+    prevActiveRef.current = isActive;
+  }, [isActive, activeJob?.id]);
+
+  // Check persisted job status on initial mount
+  useEffect(() => {
+    if (persisted?.activeJob?.id) {
+      fetch(`/api/worker/jobs/${encodeURIComponent(persisted.activeJob.id)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((json) => {
+          if (json?.success && json.data) {
+            setActiveJob(json.data);
+          }
+        })
+        .catch((err) => console.warn("Initial persisted job check failed:", err));
+    }
+  }, []);
+
+  // Poll job status when activeJob is queued, claimed, or running (continues in background)
   useEffect(() => {
     if (!activeJob || ["completed", "failed", "cancelled"].includes(activeJob.status)) {
       if (timerRef.current) {
@@ -53,7 +164,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
       }, 100);
     }
 
-    // Poll job status every 1 second
+    // Poll job status every 1 second (both active and background)
     const pollInterval = setInterval(async () => {
       try {
         const res = await fetch(`/api/worker/jobs/${encodeURIComponent(activeJob.id)}`);
@@ -255,6 +366,22 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
     }
   };
 
+  const handleResetSession = () => {
+    if (window.confirm("确定要重置当前网格生成会话与输入信息吗？")) {
+      setActiveJob(null);
+      setImagePreview(null);
+      setImageArtifactUrl("");
+      setUploadedArtifact(null);
+      setCustomArtifactUri(null);
+      setGlbLoadError(null);
+      setErrorMsg(null);
+      setElapsedMs(0);
+      try {
+        localStorage.removeItem(STORAGE_KEY);
+      } catch (e) {}
+    }
+  };
+
   const outputArtifact = activeJob?.outputArtifacts?.[0];
 
   return (
@@ -281,27 +408,101 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
         }}
       >
         <div>
-          <h3 style={{ margin: 0, color: "#fff", fontSize: 16 }}>
-            Real Image → Local Mesh Pipeline (G4-3)
-          </h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <h3 style={{ margin: 0, color: "#fff", fontSize: 16 }}>
+              真实图片 → 本地网格生成管线 (G4-3)
+            </h3>
+            {isActive ? (
+              <span
+                title="DOM 级持久驻留与视口感知容器已生效，切换节点/标签不丢失状态与任务"
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "rgba(76, 175, 80, 0.2)",
+                  color: "#81c784",
+                  border: "1px solid #4caf50",
+                  fontWeight: "bold",
+                }}
+              >
+                ● 视口: 活跃 (DOM 驻留)
+              </span>
+            ) : (
+              <span
+                title="组件在后台持久驻留中，任务和轮询保持运行"
+                style={{
+                  fontSize: 10,
+                  padding: "2px 6px",
+                  borderRadius: 4,
+                  background: "rgba(255, 152, 0, 0.2)",
+                  color: "#ffb74d",
+                  border: "1px solid #ff9800",
+                  fontWeight: "bold",
+                }}
+              >
+                ⏳ 视口: 后台守护
+              </span>
+            )}
+          </div>
           <span style={{ fontSize: 12, color: "#aaa" }}>
-            Local Worker + ComfyUI + Hunyuan3D v2.1
+            本地 Worker + ComfyUI + Hunyuan3D 混元三维 v2.1
           </span>
         </div>
-        <span
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button
+            onClick={handleResetSession}
+            title="重置当前面板会话与缓存数据"
+            style={{
+              fontSize: 11,
+              padding: "4px 8px",
+              background: "#2a2a35",
+              color: "#bbb",
+              border: "1px solid #3d3d4e",
+              borderRadius: 4,
+              cursor: "pointer",
+            }}
+          >
+            ↺ 重置会话
+          </button>
+          <span
+            style={{
+              fontSize: 11,
+              padding: "3px 8px",
+              borderRadius: 4,
+              background: "rgba(79, 195, 247, 0.15)",
+              color: "#4fc3f7",
+              border: "1px solid #4fc3f7",
+              fontWeight: "bold",
+            }}
+          >
+            生产真值 productionTruth: 否 (AI参考)
+          </span>
+        </div>
+      </div>
+
+      {activeJob?.status === "completed" && outputArtifact && (
+        <div
           style={{
-            fontSize: 11,
-            padding: "3px 8px",
-            borderRadius: 4,
-            background: "rgba(79, 195, 247, 0.15)",
-            color: "#4fc3f7",
-            border: "1px solid #4fc3f7",
-            fontWeight: "bold",
+            marginBottom: 14,
+            padding: "8px 12px",
+            background: "rgba(46, 125, 50, 0.2)",
+            border: "1px solid #2e7d32",
+            borderRadius: 6,
+            color: "#a5d6a7",
+            fontSize: 12,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
           }}
         >
-          productionTruth: false
-        </span>
-      </div>
+          <span>
+            ✓ <strong>网格生成已就绪！</strong> 数据与模型在切换节点期间全程 DOM 驻留保持。
+          </span>
+          <span style={{ fontSize: 11, color: "#81c784" }}>
+            任务: {activeJob.id?.slice(0, 16)}...
+          </span>
+        </div>
+      )}
 
       {errorMsg && (
         <div
@@ -315,7 +516,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
             fontSize: 13,
           }}
         >
-          <strong>Error:</strong> {errorMsg}
+          <strong>错误:</strong> {errorMsg}
         </div>
       )}
 
@@ -324,7 +525,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
         {/* Left Column: Reference Image */}
         <div>
           <label style={{ display: "block", fontSize: 12, fontWeight: "bold", color: "#aaa", marginBottom: 6 }}>
-            1. Reference Part Image *
+            1. 部件参考图 (Reference Image) *
           </label>
           <div
             style={{
@@ -345,17 +546,17 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
             {imagePreview ? (
               <img
                 src={imagePreview}
-                alt="Reference Part"
+                alt="参考部件"
                 style={{ width: "100%", height: "100%", objectFit: "contain" }}
               />
             ) : (
               <div style={{ textAlign: "center", color: "#888", fontSize: 12, padding: 10 }}>
                 {isUploadingImage ? (
-                  <span>Uploading image to server...</span>
+                  <span>正在上传图片至服务器...</span>
                 ) : (
                   <>
                     <div style={{ fontSize: 24, marginBottom: 4 }}>📷</div>
-                    Click to select reference image
+                    点击选择参考图片上传
                   </>
                 )}
               </div>
@@ -384,11 +585,11 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                 fontSize: 12,
               }}
             >
-              Use Sample Image
+              使用示例图片
             </button>
             {imageArtifactUrl && (
               <span style={{ fontSize: 11, color: "#81c784", alignSelf: "center", wordBreak: "break-all" }}>
-                ✓ Artifact ready
+                ✓ 图像产物已就绪
               </span>
             )}
           </div>
@@ -398,7 +599,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
         <div style={{ display: "grid", gap: 10 }}>
           <div>
             <label style={{ display: "block", fontSize: 12, color: "#aaa", marginBottom: 4 }}>
-              Part ID
+              部件标识 (Part ID)
             </label>
             <input
               type="text"
@@ -413,13 +614,13 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                 color: "#fff",
                 fontSize: 13,
               }}
-              placeholder="e.g. part-arm-left"
+              placeholder="例如: part-arm-left"
             />
           </div>
 
           <div>
             <label style={{ display: "block", fontSize: 12, color: "#aaa", marginBottom: 4 }}>
-              Provider
+              推理引擎 (Provider)
             </label>
             <input
               type="text"
@@ -440,7 +641,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
 
           <div>
             <label style={{ display: "block", fontSize: 12, color: "#aaa", marginBottom: 4 }}>
-              Workflow Preset
+              工作流预设 (Preset)
             </label>
             <input
               type="text"
@@ -460,7 +661,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
 
           <div>
             <label style={{ display: "block", fontSize: 12, color: "#aaa", marginBottom: 4 }}>
-              Random Seed
+              随机种子 (Seed)
             </label>
             <input
               type="number"
@@ -505,10 +706,10 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
         }}
       >
         {isSubmitting
-          ? "Submitting Job..."
+          ? "正在提交任务..."
           : activeJob && !["completed", "failed", "cancelled"].includes(activeJob.status)
-          ? `Running Local Mesh Job (${activeJob.status})... ${(elapsedMs / 1000).toFixed(1)}s`
-          : "Generate Local Mesh"}
+          ? `本地网格生成中 (${activeJob.status === "running" ? "运行中" : activeJob.status === "queued" ? "排队中" : activeJob.status})... ${(elapsedMs / 1000).toFixed(1)}s`
+          : "🚀 开始生成本地 3D 网格"}
       </button>
 
       {/* Execution Monitor & Display */}
@@ -531,7 +732,7 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
               borderBottom: "1px solid #2a2a35",
             }}
           >
-            <strong style={{ color: "#fff", fontSize: 13 }}>Job Monitor</strong>
+            <strong style={{ color: "#fff", fontSize: 13 }}>任务监控 (Job Monitor)</strong>
             <span
               style={{
                 fontSize: 12,
@@ -547,27 +748,33 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                 color: "#fff",
               }}
             >
-              {activeJob.status.toUpperCase()}
+              {activeJob.status === "completed"
+                ? "已完成 (COMPLETED)"
+                : activeJob.status === "failed"
+                ? "失败 (FAILED)"
+                : activeJob.status === "running"
+                ? "运行中 (RUNNING)"
+                : activeJob.status.toUpperCase()}
             </span>
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, fontSize: 12, marginBottom: 10 }}>
             <div>
-              <span style={{ color: "#aaa" }}>Job ID:</span>{" "}
+              <span style={{ color: "#aaa" }}>任务编号 (Job ID):</span>{" "}
               <span style={{ color: "#80cbc4", fontFamily: "monospace" }}>{activeJob.id}</span>
             </div>
             <div>
-              <span style={{ color: "#aaa" }}>Worker ID:</span>{" "}
+              <span style={{ color: "#aaa" }}>工作节点 (Worker ID):</span>{" "}
               <span style={{ color: "#fff", fontFamily: "monospace" }}>
-                {activeJob.claimedByWorkerId || "Waiting for Local Worker..."}
+                {activeJob.claimedByWorkerId || "等待本地 Worker 认领..."}
               </span>
             </div>
             <div>
-              <span style={{ color: "#aaa" }}>Elapsed Time:</span>{" "}
-              <span style={{ color: "#ffd54f", fontWeight: "bold" }}>{(elapsedMs / 1000).toFixed(1)}s</span>
+              <span style={{ color: "#aaa" }}>执行耗时:</span>{" "}
+              <span style={{ color: "#ffd54f", fontWeight: "bold" }}>{(elapsedMs / 1000).toFixed(1)}秒</span>
             </div>
             <div>
-              <span style={{ color: "#aaa" }}>Provider:</span>{" "}
+              <span style={{ color: "#aaa" }}>推理引擎:</span>{" "}
               <span style={{ color: "#fff" }}>{activeJob.provider}</span>
             </div>
           </div>
@@ -584,22 +791,91 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                 marginBottom: 10,
               }}
             >
-              <strong>Failure Cause:</strong> {activeJob.error}
+              <strong>失败原因:</strong> {activeJob.error}
             </div>
           )}
 
           {/* Artifact Result Display */}
           {outputArtifact && (() => {
-            const uri = String(outputArtifact.uri || "").trim();
-            const isLocalPath = /^[a-zA-Z]:[\\/]/.test(uri) || uri.startsWith("file://") || uri.includes("\\ComfyUI\\") || uri.includes("/ComfyUI/");
-            const meshState = !uri ? "UPLOADED" : isLocalPath ? "LOAD_FAILED" : "BROWSER_READY";
+            const uri = String(customArtifactUri || outputArtifact.uri || "").trim();
+            const isLocalPath =
+              /^[a-zA-Z]:[\\/]/.test(uri) ||
+              uri.startsWith("file://") ||
+              uri.includes("\\ComfyUI\\") ||
+              uri.includes("/ComfyUI/");
+            const meshState = !uri ? "UPLOADED" : isLocalPath ? "LOCAL_FILE" : "BROWSER_READY";
+
+            const handlePreviewClick = async () => {
+              if (!uri || !onLoadGlbTo3d) return;
+              setIsLoadingPreview(true);
+              setGlbLoadError(null);
+              try {
+                const checkRes = await fetch(uri);
+                if (!checkRes.ok) {
+                  throw new Error(
+                    `服务器端未找到该模型文件 (HTTP ${checkRes.status})。请点击下方“选择本地生成的 GLB 文件”直接上传即可预览。`
+                  );
+                }
+                onLoadGlbTo3d(uri, { ...outputArtifact, uri });
+              } catch (err: any) {
+                console.warn("[ImageToMeshTestPanel] Preview load warning:", err);
+                setGlbLoadError(
+                  err?.message || "无法从服务器加载该 3D 模型文件。请点击下方上传本地生成的 GLB 文件进行预览。"
+                );
+              } finally {
+                setIsLoadingPreview(false);
+              }
+            };
+
+            const handleGlbFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+              const file = e.target.files?.[0];
+              if (!file || !outputArtifact) return;
+
+              setIsUploadingLocalGlb(true);
+              setGlbLoadError(null);
+
+              try {
+                const formData = new FormData();
+                formData.append("file", file);
+                formData.append("artifactId", outputArtifact.id);
+                formData.append("partId", partId);
+                formData.append("jobId", activeJob?.id || "job");
+
+                const res = await fetch("/api/worker/artifacts/upload", {
+                  method: "POST",
+                  headers: {
+                    "x-worker-token": "browser-client",
+                  },
+                  body: formData,
+                });
+
+                if (!res.ok) {
+                  const errJson = await res.json().catch(() => ({}));
+                  throw new Error(errJson?.error?.message || `HTTP ${res.status}`);
+                }
+
+                const resData = await res.json();
+                const newUrl =
+                  resData.downloadUrl || resData.url || `/api/worker/artifacts/file/${outputArtifact.id}`;
+                setCustomArtifactUri(newUrl);
+
+                if (onLoadGlbTo3d) {
+                  onLoadGlbTo3d(newUrl, { ...outputArtifact, uri: newUrl });
+                }
+              } catch (err: any) {
+                console.error("Failed to upload local GLB:", err);
+                setGlbLoadError(`本地 GLB 上传失败: ${err.message || err}`);
+              } finally {
+                setIsUploadingLocalGlb(false);
+              }
+            };
 
             return (
               <div
                 style={{
                   padding: 12,
                   background: "#121214",
-                  border: `1px solid ${meshState === "BROWSER_READY" ? "#2e7d32" : meshState === "LOAD_FAILED" ? "#c62828" : "#ed6c02"}`,
+                  border: `1px solid ${meshState === "BROWSER_READY" ? "#2e7d32" : meshState === "LOCAL_FILE" ? "#f57c00" : "#ed6c02"}`,
                   borderRadius: 6,
                   marginTop: 8,
                 }}
@@ -612,8 +888,13 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                     marginBottom: 8,
                   }}
                 >
-                  <strong style={{ color: meshState === "BROWSER_READY" ? "#81c784" : "#ff8a80", fontSize: 13 }}>
-                    ✓ AI Reference Mesh Artifact Generated
+                  <strong
+                    style={{
+                      color: meshState === "BROWSER_READY" ? "#81c784" : "#ffb74d",
+                      fontSize: 13,
+                    }}
+                  >
+                    ✓ AI 参考网格产物已生成 (AI Reference Mesh Artifact)
                   </strong>
                   <div style={{ display: "flex", gap: 6 }}>
                     <span
@@ -621,83 +902,114 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                         fontSize: 10,
                         fontWeight: "bold",
                         padding: "2px 6px",
-                        background: meshState === "BROWSER_READY" ? "#1b5e20" : "#c62828",
+                        background: meshState === "BROWSER_READY" ? "#1b5e20" : "#e65100",
                         borderRadius: 3,
                         color: "#fff",
                       }}
                     >
-                      Mesh Artifact: {meshState}
+                      产物状态: {meshState === "BROWSER_READY" ? "浏览器就绪" : meshState === "LOCAL_FILE" ? "本地文件" : "已上传"}
                     </span>
-                    <span style={{ fontSize: 10, padding: "2px 6px", background: "#333", borderRadius: 3, color: "#aaa" }}>
-                      productionTruth = {String(outputArtifact.productionTruth ?? false)}
+                    <span
+                      style={{
+                        fontSize: 10,
+                        padding: "2px 6px",
+                        background: "#333",
+                        borderRadius: 3,
+                        color: "#aaa",
+                      }}
+                    >
+                      生产真值 productionTruth = 否 (参考)
                     </span>
                   </div>
                 </div>
 
                 <div style={{ fontSize: 12, color: "#ccc", display: "grid", gap: 6 }}>
                   <div>
-                    <strong>Artifact ID:</strong>{" "}
+                    <strong>产物编号 (Artifact ID):</strong>{" "}
                     <span style={{ fontFamily: "monospace", color: "#80cbc4" }}>{outputArtifact.id}</span>
                   </div>
                   <div>
-                    <strong>Part ID:</strong>{" "}
+                    <strong>部件名称 (Part ID):</strong>{" "}
                     <span style={{ fontFamily: "monospace", color: "#ffd54f" }}>{partId}</span>
                   </div>
                   <div>
-                    <strong>Engineering Data Status:</strong>{" "}
+                    <strong>工程数据状态:</strong>{" "}
                     {fes ? (
                       <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
-                        FES Active (SKU: {fes.sku})
+                        FES 工程模型激活 (款号: {fes.sku})
                       </span>
                     ) : (
-                      <span style={{ color: "#f44336", fontWeight: "bold" }}>
-                        ENGINEERING DATA REQUIRED — Load FES / Excel first.
-                      </span>
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 2 }}>
+                        <span style={{ color: "#f44336", fontWeight: "bold" }}>
+                          需要工程数据 — 请先载入 FES 工程表或 Excel。
+                        </span>
+                        {onLoadSample && (
+                          <button
+                            type="button"
+                            onClick={() => onLoadSample("est_sofa_roundarm_2650.xlsx")}
+                            style={{
+                              padding: "2px 8px",
+                              background: "#00897b",
+                              color: "#fff",
+                              border: "none",
+                              borderRadius: 4,
+                              fontSize: 11,
+                              fontWeight: "bold",
+                              cursor: "pointer",
+                            }}
+                          >
+                            ⚡ 一键加载沙发工程表 (Sofa FES)
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <strong>Mapped Component:</strong>{" "}
-                    {fes?.assembly?.components?.length ? (
-                      <select
-                        value={mappedComponentId}
-                        onChange={(e) => setMappedComponentId(e.target.value)}
-                        style={{
-                          padding: "3px 8px",
-                          background: "#1c1c24",
-                          color: "#fff",
-                          border: "1px solid #4fc3f7",
-                          borderRadius: 4,
-                          fontSize: 12,
-                        }}
-                      >
-                        {fes.assembly.components.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.id} ({c.name || "Component"})
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="text"
-                        value={mappedComponentId}
-                        onChange={(e) => setMappedComponentId(e.target.value)}
-                        style={{
-                          padding: "3px 8px",
-                          background: "#1c1c24",
-                          color: "#fff",
-                          border: "1px solid #3d3d4e",
-                          borderRadius: 4,
-                          fontSize: 12,
-                        }}
-                        placeholder="e.g. ARM-L-OUT"
-                      />
-                    )}
+                    <strong>映射工程组件:</strong>{" "}
+                    {(() => {
+                      const comps = (fes as any)?.assembly?.components || fes?.components || [];
+                      return comps.length > 0 ? (
+                        <select
+                          value={mappedComponentId}
+                          onChange={(e) => setMappedComponentId(e.target.value)}
+                          style={{
+                            padding: "3px 8px",
+                            background: "#1c1c24",
+                            color: "#fff",
+                            border: "1px solid #4fc3f7",
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                        >
+                          {comps.map((c: any, cIdx: number) => (
+                            <option key={`${c.id || "comp"}_${cIdx}`} value={c.id}>
+                              {c.id} ({c.name || "工程组件"})
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <input
+                          type="text"
+                          value={mappedComponentId}
+                          onChange={(e) => setMappedComponentId(e.target.value)}
+                          style={{
+                            padding: "3px 8px",
+                            background: "#1c1c24",
+                            color: "#fff",
+                            border: "1px solid #3d3d4e",
+                            borderRadius: 4,
+                            fontSize: 12,
+                          }}
+                          placeholder="例如: ARM-L-OUT"
+                        />
+                      );
+                    })()}
                   </div>
                   <div>
-                    <strong>Cloud Artifact URL:</strong>{" "}
+                    <strong>云端产物地址:</strong>{" "}
                     {isLocalPath ? (
-                      <span style={{ color: "#ef5350", fontWeight: "bold" }}>
-                        [ERROR: Local worker filesystem path rejected - Cloud URL required]
+                      <span style={{ color: "#ffb74d" }}>
+                        本地 Worker 文件路径: <code>{uri}</code> (请直接点击下方上传以在浏览器中预览)
                       </span>
                     ) : (
                       <a
@@ -710,52 +1022,106 @@ export function ImageToMeshTestPanel({ fes, onLoadGlbTo3d, onRunAlignment }: Ima
                       </a>
                     )}
                   </div>
-                  <div>
-                    <strong>Format / Bytes:</strong> {outputArtifact.metadata?.format || "glb"} /{" "}
-                    {outputArtifact.metadata?.fileBytes
-                      ? `${(Number(outputArtifact.metadata.fileBytes) / 1024).toFixed(1)} KB`
-                      : "N/A"}
+                </div>
+
+                {glbLoadError && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      padding: 8,
+                      background: "rgba(244, 67, 54, 0.15)",
+                      border: "1px solid #f44336",
+                      borderRadius: 4,
+                      color: "#ff8a80",
+                      fontSize: 12,
+                    }}
+                  >
+                    ⚠️ {glbLoadError}
                   </div>
+                )}
+
+                {/* Local GLB Upload / Sync box */}
+                <div
+                  style={{
+                    marginTop: 10,
+                    padding: "10px 12px",
+                    background: "#1c1c26",
+                    border: "1px dashed #3f51b5",
+                    borderRadius: 4,
+                  }}
+                >
+                  <div style={{ fontSize: 12, color: "#ccc", marginBottom: 6 }}>
+                    <strong>本地模型直连上传通道：</strong>
+                    <span style={{ color: "#90caf9", marginLeft: 4 }}>
+                      若 Worker 生成后未自动同步至云端，可直接选择本地生成的文件上传，即可在 Three.js 3D 中预览！
+                    </span>
+                  </div>
+                  <input
+                    ref={glbFileInputRef}
+                    type="file"
+                    accept=".glb,.gltf"
+                    style={{ display: "none" }}
+                    onChange={handleGlbFileUpload}
+                  />
+                  <button
+                    type="button"
+                    disabled={isUploadingLocalGlb}
+                    onClick={() => glbFileInputRef.current?.click()}
+                    style={{
+                      padding: "6px 14px",
+                      background: isUploadingLocalGlb ? "#455a64" : "#1976d2",
+                      color: "#fff",
+                      fontWeight: "bold",
+                      border: "none",
+                      borderRadius: 4,
+                      cursor: isUploadingLocalGlb ? "not-allowed" : "pointer",
+                      fontSize: 12,
+                    }}
+                  >
+                    {isUploadingLocalGlb ? "⏳ 正在上传本地 GLB 模型..." : "📂 选择本地生成的 GLB 文件上传并预览"}
+                  </button>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 12 }}>
                   {onLoadGlbTo3d && uri && !isLocalPath && (
                     <button
-                      onClick={() => onLoadGlbTo3d(uri, outputArtifact)}
+                      onClick={handlePreviewClick}
+                      disabled={isLoadingPreview}
                       style={{
                         padding: "8px 12px",
-                        background: "#2e7d32",
+                        background: isLoadingPreview ? "#388e3c" : "#2e7d32",
                         color: "#fff",
                         fontWeight: "bold",
                         border: "none",
                         borderRadius: 4,
-                        cursor: "pointer",
+                        cursor: isLoadingPreview ? "wait" : "pointer",
                         fontSize: 12,
                       }}
                     >
-                      Preview in Three.js 3D View
+                      {isLoadingPreview ? "正在加载 3D 模型..." : "👁️ 在 Three.js 3D 视口中预览"}
                     </button>
                   )}
 
                   <button
                     onClick={() => {
-                      if (onRunAlignment) {
+                      if (fes && onRunAlignment) {
                         onRunAlignment(outputArtifact.id, partId, mappedComponentId);
+                      } else if (!fes && onLoadSample) {
+                        onLoadSample("est_sofa_roundarm_2650.xlsx");
                       }
                     }}
-                    disabled={!fes}
                     style={{
                       padding: "8px 12px",
-                      background: fes ? "#0288d1" : "#424242",
+                      background: fes ? "#0288d1" : "#00897b",
                       color: "#fff",
                       fontWeight: "bold",
                       border: "none",
                       borderRadius: 4,
-                      cursor: fes ? "pointer" : "not-allowed",
+                      cursor: "pointer",
                       fontSize: 12,
                     }}
                   >
-                    {fes ? "Run Engineering Alignment" : "Load FES / Excel first."}
+                    {fes ? "📐 执行工程对齐分析 (Run Alignment)" : "⚡ 加载工程表 (Load Sofa FES)"}
                   </button>
                 </div>
               </div>

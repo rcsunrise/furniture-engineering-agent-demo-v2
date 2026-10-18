@@ -40,16 +40,16 @@ export async function executeComfyHunyuan3dTask(
     options.workflowPath ||
     process.env.COMFYUI_WORKFLOW ||
     "local-worker/workflows/hunyuan3d-v2.1-part-v1.api.json";
-  const inputDir = options.inputDir || process.env.COMFYUI_INPUT_DIR || "local-worker/temp/input";
-  const outputDir = options.outputDir || process.env.COMFYUI_OUTPUT_DIR || "local-worker/temp/output";
+  const inputDir = (options.inputDir || process.env.COMFYUI_INPUT_DIR || "local-worker/temp/input").trim().replace(/^["']|["']$/g, "");
+  const outputDir = (options.outputDir || process.env.COMFYUI_OUTPUT_DIR || "local-worker/temp/output").trim().replace(/^["']|["']$/g, "");
   const requestTimeoutMs =
     options.requestTimeoutMs || parseInt(process.env.COMFYUI_REQUEST_TIMEOUT_MS || "10000", 10);
   const jobTimeoutMs =
     options.jobTimeoutMs || parseInt(process.env.COMFYUI_JOB_TIMEOUT_MS || "120000", 10);
   const pollIntervalMs =
     options.pollIntervalMs || parseInt(process.env.COMFYUI_POLL_INTERVAL_MS || "2000", 10);
-  const gatewayUrl = options.gatewayUrl || process.env.WORKER_GATEWAY_URL || "http://127.0.0.1:3000";
-  const serverOrigin = options.serverOrigin || process.env.SERVER_ORIGIN || gatewayUrl;
+  const gatewayUrl = (options.gatewayUrl || process.env.WORKER_GATEWAY_URL || "http://127.0.0.1:3000").trim().replace(/^["']|["']$/g, "");
+  const serverOrigin = (options.serverOrigin || process.env.SERVER_ORIGIN || gatewayUrl).trim().replace(/^["']|["']$/g, "");
 
   // 1. Initialize Client & Check Health
   const client = new ComfyClient({ baseUrl, requestTimeoutMs });
@@ -290,7 +290,13 @@ export async function executeComfyHunyuan3dTask(
       rawArtifact = uploadRes.artifact;
     } else {
       // Direct fetch fallback to gatewayUrl
-      const uploadRes = await fetch(`${gatewayUrl.replace(/\/$/, "")}/api/worker/artifacts/upload`, {
+      let base = (gatewayUrl || "").trim().replace(/\/+$/, "");
+      if (base.endsWith("/api/worker/runtime")) {
+        base = base.substring(0, base.length - "/api/worker/runtime".length);
+      } else if (base.endsWith("/api/worker")) {
+        base = base.substring(0, base.length - "/api/worker".length);
+      }
+      const uploadRes = await fetch(`${base}/api/worker/artifacts/upload`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

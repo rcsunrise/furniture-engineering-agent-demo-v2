@@ -17,7 +17,7 @@ export function applySeamDisplacement(
   const posAttr = geometry.getAttribute("position");
   if (!posAttr) return;
 
-  const bbox = geometry.boundingBox || new THREE.Box3().setFromBufferAttribute(posAttr);
+  const bbox = geometry.boundingBox || new THREE.Box3().setFromBufferAttribute(posAttr as THREE.BufferAttribute);
   const sizeY = bbox.max.y - bbox.min.y || 1;
   const targetY = bbox.min.y + sizeY * seamYRatio;
 

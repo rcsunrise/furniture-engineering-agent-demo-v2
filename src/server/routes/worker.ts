@@ -1,16 +1,22 @@
 import { Router, Request, Response } from "express";
 import fs from "fs";
 import path from "path";
-import { globalWorkerService } from "../worker/workerService.ts";
-import { CreateWorkerJobRequestSchema, WorkerJobStatusSchema } from "../../shared/worker.ts";
-import { createEngineeringArtifact } from "../../shared/artifact.ts";
-import { IllegalWorkerStateTransitionError } from "../worker/workerStateMachine.ts";
-import { WorkspaceMismatchError, JobNotFoundError } from "../worker/workerJobStore.ts";
-import { getSanitizedWorkerStatus } from "../worker/workerStatus.ts";
+import multer from "multer";
+import { globalWorkerService } from "../worker/workerService.js";
+import { CreateWorkerJobRequestSchema, WorkerJobStatusSchema } from "../../shared/worker.js";
+import { createEngineeringArtifact } from "../../shared/artifact.js";
+import { IllegalWorkerStateTransitionError } from "../worker/workerStateMachine.js";
+import { WorkspaceMismatchError, JobNotFoundError } from "../worker/workerJobStore.js";
+import { getSanitizedWorkerStatus } from "../worker/workerStatus.js";
 import { workerAuthMiddleware } from "../worker/workerAuth.js";
 import { rateLimiterMiddleware } from "../limiter/parseLimiter.js";
 
 export const workerRouter = Router();
+
+const artifactUpload = multer({
+  limits: { fileSize: 250 * 1024 * 1024 }, // 250MB
+  storage: multer.memoryStorage(),
+});
 
 const workerStatusLimiter = rateLimiterMiddleware({
   bucketName: "worker_status",
@@ -78,7 +84,7 @@ workerRouter.post("/jobs", (req: Request, res: Response) => {
 
 // 2. GET /api/worker/jobs/:jobId - Fetch single job detail
 workerRouter.get("/jobs/:jobId", (req: Request, res: Response) => {
-  const { jobId } = req.params;
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
   const workspaceId = req.query.workspaceId as string | undefined;
 
   try {
@@ -145,7 +151,7 @@ workerRouter.get("/jobs", (req: Request, res: Response) => {
 
 // 4. POST /api/worker/jobs/:jobId/cancel - Cancel a queued, claimed, or running job
 workerRouter.post("/jobs/:jobId/cancel", (req: Request, res: Response) => {
-  const { jobId } = req.params;
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
   const workspaceId = (req.body?.workspaceId || req.query.workspaceId) as string | undefined;
   const reason = (req.body?.reason || req.query.reason) as string | undefined;
 
@@ -243,7 +249,7 @@ function detectImageFormat(
 // GET /api/worker/artifacts/:artifactId/download - Download endpoint alias
 const serveArtifactFileHandler = (req: Request, res: Response) => {
   try {
-    const { artifactId } = req.params;
+    const artifactId = Array.isArray(req.params.artifactId) ? req.params.artifactId[0] : req.params.artifactId;
     const workspaceId = req.query.workspaceId as string | undefined;
 
     // Sanitize artifactId to prevent path traversal
@@ -427,95 +433,115 @@ workerRouter.post("/artifacts/upload-image", workerArtifactsLimiter, (req: Reque
   }
 });
 
-// POST /api/worker/artifacts/upload - Upload GLB artifact from worker (supports x-worker-token)
-workerRouter.post("/artifacts/upload", workerAuthMiddleware, (req: Request, res: Response) => {
-  try {
-    const { fileName, fileData, jobId, partId, sku, provider, workflowVersion, modelOrCheckpoint, seed } = req.body || {};
-    if (!fileData || typeof fileData !== "string") {
-      res.status(400).json({
-        error: {
-          code: "INVALID_ARTIFACT_PAYLOAD",
-          message: "Missing or invalid 'fileData' (base64 string expected)",
-        },
-      });
-      return;
-    }
+// POST /api/worker/artifacts/upload - Upload GLB artifact from worker or browser (supports multipart & base64)
+workerRouter.post(
+  "/artifacts/upload",
+  workerAuthMiddleware,
+  artifactUpload.single("file"),
+  (req: Request, res: Response) => {
+    try {
+      const {
+        fileName: bodyFileName,
+        fileData,
+        jobId,
+        partId,
+        sku,
+        provider,
+        workflowVersion,
+        modelOrCheckpoint,
+        seed,
+        artifactId: requestedArtifactId,
+      } = req.body || {};
 
-    let base64Content = fileData;
-    if (fileData.startsWith("data:")) {
-      base64Content = fileData.split(",")[1] || fileData;
-    }
+      let buffer: Buffer | null = null;
+      let effectiveFileName = bodyFileName || "model.glb";
 
-    const buffer = Buffer.from(base64Content, "base64");
-    if (buffer.length === 0) {
-      res.status(400).json({
-        error: {
-          code: "INVALID_ARTIFACT_PAYLOAD",
-          message: "Decoded buffer is empty",
-        },
-      });
-      return;
-    }
+      if (req.file) {
+        buffer = req.file.buffer;
+        effectiveFileName = req.file.originalname || bodyFileName || "model.glb";
+      } else if (fileData && typeof fileData === "string") {
+        let base64Content = fileData;
+        if (fileData.startsWith("data:")) {
+          base64Content = fileData.split(",")[1] || fileData;
+        }
+        buffer = Buffer.from(base64Content, "base64");
+      }
 
-    const uploadsDir = path.join(process.cwd(), "uploads", "artifacts");
-    fs.mkdirSync(uploadsDir, { recursive: true });
+      if (!buffer || buffer.length === 0) {
+        res.status(400).json({
+          error: {
+            code: "INVALID_ARTIFACT_PAYLOAD",
+            message: "Missing or empty file buffer (multipart 'file' or base64 'fileData' required)",
+          },
+        });
+        return;
+      }
 
-    const safeJobId = (jobId || "job").replace(/[^a-zA-Z0-9_-]/g, "");
-    const safePartId = (partId || "part").replace(/[^a-zA-Z0-9_-]/g, "");
-    const cleanFileName = (fileName || `mesh_${safePartId}.glb`).replace(/[^a-zA-Z0-9._-]/g, "");
-    
-    const artifactId = `art-glb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
-    const fileId = `${artifactId}.glb`;
-    const filePath = path.join(uploadsDir, fileId);
-    const metaPath = path.join(uploadsDir, `${artifactId}.json`);
+      const uploadsDir = path.join(process.cwd(), "uploads", "artifacts");
+      fs.mkdirSync(uploadsDir, { recursive: true });
 
-    fs.writeFileSync(filePath, buffer);
+      const safeJobId = (jobId || "job").replace(/[^a-zA-Z0-9_-]/g, "");
+      const safePartId = (partId || "part").replace(/[^a-zA-Z0-9_-]/g, "");
+      const cleanFileName = effectiveFileName.replace(/[^a-zA-Z0-9._-]/g, "");
 
-    const artifactUrl = `/api/worker/artifacts/file/${artifactId}`;
+      const artifactId =
+        typeof requestedArtifactId === "string" && requestedArtifactId.trim().length > 0
+          ? requestedArtifactId.trim().replace(/[^a-zA-Z0-9_-]/g, "")
+          : `art-glb-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
 
-    const canonicalArtifactMeta = {
-      id: artifactId,
-      workspaceId: req.body.workspaceId || "default-ws",
-      kind: "ai_reference_mesh",
-      format: "glb",
-      mimeType: "model/gltf-binary",
-      downloadUrl: artifactUrl,
-      originalName: cleanFileName,
-      bytes: buffer.length,
-      productionTruth: false,
-      createdAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(metaPath, JSON.stringify(canonicalArtifactMeta, null, 2), "utf-8");
+      const fileId = `${artifactId}.glb`;
+      const filePath = path.join(uploadsDir, fileId);
+      const metaPath = path.join(uploadsDir, `${artifactId}.json`);
 
-    const artifact = createEngineeringArtifact({
-      id: artifactId,
-      type: "ai_reference_mesh",
-      name: `Hunyuan3D Reference Mesh (${partId || "part"})`,
-      uri: artifactUrl,
-      provenance: {
-        provider: provider || "comfyui_hunyuan3d",
-        workflowVersion: workflowVersion || "hunyuan3d-v2.1-part-v1.api.json",
-        modelOrCheckpoint: modelOrCheckpoint || "hunyuan_3d_v2.1.safetensors",
-        seed: typeof seed === "number" ? seed : undefined,
+      fs.writeFileSync(filePath, buffer);
+
+      const artifactUrl = `/api/worker/artifacts/file/${artifactId}`;
+
+      const canonicalArtifactMeta = {
+        id: artifactId,
+        workspaceId: req.body?.workspaceId || "default-ws",
+        kind: "ai_reference_mesh",
+        format: "glb",
+        mimeType: "model/gltf-binary",
+        downloadUrl: artifactUrl,
+        originalName: cleanFileName,
+        bytes: buffer.length,
+        productionTruth: false,
         createdAt: new Date().toISOString(),
-      },
-      productionTruth: false,
-    });
+      };
+      fs.writeFileSync(metaPath, JSON.stringify(canonicalArtifactMeta, null, 2), "utf-8");
 
-    res.status(200).json({
-      success: true,
-      url: artifactUrl,
-      downloadUrl: artifactUrl,
-      artifactId,
-      fileBytes: buffer.length,
-      artifact,
-    });
-  } catch (err: any) {
-    res.status(500).json({
-      error: {
-        code: "GLB_UPLOAD_FAILED",
-        message: err?.message || String(err),
-      },
-    });
+      const artifact = createEngineeringArtifact({
+        id: artifactId,
+        type: "ai_reference_mesh",
+        name: `Hunyuan3D Reference Mesh (${partId || "part"})`,
+        uri: artifactUrl,
+        provenance: {
+          provider: provider || "comfyui_hunyuan3d",
+          workflowVersion: workflowVersion || "hunyuan3d-v2.1-part-v1.api.json",
+          modelOrCheckpoint: modelOrCheckpoint || "hunyuan_3d_v2.1.safetensors",
+          seed: typeof seed === "number" ? seed : undefined,
+          createdAt: new Date().toISOString(),
+        },
+        productionTruth: false,
+      });
+
+      res.status(200).json({
+        success: true,
+        url: artifactUrl,
+        downloadUrl: artifactUrl,
+        artifactId,
+        fileBytes: buffer.length,
+        artifact,
+      });
+    } catch (err: any) {
+      console.error("[Worker] Artifact upload error:", err);
+      res.status(500).json({
+        error: {
+          code: "GLB_UPLOAD_FAILED",
+          message: err?.message || String(err),
+        },
+      });
+    }
   }
-});
+);

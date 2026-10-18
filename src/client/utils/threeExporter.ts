@@ -54,8 +54,9 @@ export async function export3DModel(
     case "STL": {
       const exporter = new STLExporter();
       const result = exporter.parse(exportGroup, { binary: true });
+      const blobPart = result instanceof DataView ? result.buffer : (result as any);
       triggerFileDownload(
-        new Blob([result], { type: "application/octet-stream" }),
+        new Blob([blobPart], { type: "application/octet-stream" }),
         `${fileNameBase}.stl`,
         "application/octet-stream"
       );

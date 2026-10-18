@@ -129,7 +129,7 @@ export function generateGeometryDraftExcel(
     if (c.keypoints && Array.isArray(c.keypoints)) {
       for (const kp of c.keypoints) {
         observationRows.push({
-          component_id: c.componentIdDraft || c.id,
+          component_id: c.componentIdDraft || (c as any).id,
           semantic_type: c.semanticType,
           keypoint_id: kp.id,
           keypoint_name: kp.name,

@@ -80,8 +80,8 @@ export class DeterministicConstraintSolver {
     let seatWidthCand = 700;
 
     for (const c of comps) {
-      const cId = (c.componentIdDraft || c.id || "").toUpperCase();
-      const dims = c.estimatedDimensionsMm || c.estimatedBoundingBox;
+      const cId = (c.componentIdDraft || (c as any).id || "").toUpperCase();
+      const dims = c.estimatedDimensionsMm || (c as any).estimatedBoundingBox;
       if (cId.startsWith("ARM-L") || cId.startsWith("ARM_L")) {
         if (dims?.width) {
           armLeftWidthCand = dims.width.value;

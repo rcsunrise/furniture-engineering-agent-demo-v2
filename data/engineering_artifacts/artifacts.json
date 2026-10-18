@@ -1,0 +1,189 @@
+[
+  {
+    "id": "art_1788854847722_efcb0991",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "provider": "manual_upload",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "local_fallback",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/1788854847723_gcs-test.txt"
+    },
+    "revision": 1,
+    "coordinateSystem": {
+      "unit": "mm",
+      "upAxis": "Y"
+    },
+    "productionTruth": false,
+    "metadata": {
+      "smokeTest": true,
+      "generatedBy": "StorageDiagnosticsPanel"
+    },
+    "createdAt": "2026-09-08T08:07:28.170Z",
+    "updatedAt": "2026-09-08T08:07:28.414Z"
+  },
+  {
+    "id": "art_1788855122517_7898547c",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "provider": "manual_upload",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "local_fallback",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/1788855122518_gcs-test.txt"
+    },
+    "revision": 1,
+    "coordinateSystem": {
+      "unit": "mm",
+      "upAxis": "Y"
+    },
+    "productionTruth": false,
+    "metadata": {
+      "smokeTest": true,
+      "generatedBy": "StorageDiagnosticsPanel"
+    },
+    "createdAt": "2026-09-08T08:12:02.932Z",
+    "updatedAt": "2026-09-08T08:12:03.178Z"
+  },
+  {
+    "id": "art_1788855134408_164b61e1",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "ai_mesh",
+    "provider": "smoke_test_manual",
+    "format": "glb",
+    "mimeType": "application/octet-stream",
+    "sizeBytes": 6679304,
+    "storage": {
+      "provider": "local_fallback",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/mesh/source/1788855134408_part-arm-left_000013_.glb"
+    },
+    "revision": 1,
+    "coordinateSystem": {
+      "unit": "mm",
+      "upAxis": "Y"
+    },
+    "productionTruth": false,
+    "metadata": {
+      "smokeTest": true,
+      "originalName": "part-arm-left_000013_.glb",
+      "productionTruth": false
+    },
+    "createdAt": "2026-09-08T08:12:14.834Z",
+    "updatedAt": "2026-09-08T08:12:21.986Z"
+  },
+  {
+    "id": "art_1788921996191_39018028",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "provider": "manual_upload",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "local_fallback",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/1788921996191_gcs-test.txt"
+    },
+    "revision": 1,
+    "coordinateSystem": {
+      "unit": "mm",
+      "upAxis": "Y"
+    },
+    "productionTruth": false,
+    "metadata": {
+      "smokeTest": true,
+      "generatedBy": "StorageDiagnosticsPanel"
+    },
+    "createdAt": "2026-09-09T02:46:36.366Z",
+    "updatedAt": "2026-09-09T02:46:36.609Z"
+  },
+  {
+    "id": "art_gcs_test_1788922305319",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "gcs",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/smoke.txt"
+    },
+    "productionTruth": false,
+    "createdAt": "2026-09-09T02:51:45.319Z",
+    "updatedAt": "2026-09-09T02:51:45.319Z"
+  },
+  {
+    "id": "art_gcs_test_1788922361279",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "gcs",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/smoke.txt"
+    },
+    "productionTruth": false,
+    "createdAt": "2026-09-09T02:52:41.279Z",
+    "updatedAt": "2026-09-09T02:52:41.279Z"
+  },
+  {
+    "id": "art_1788923592726_609ce983",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "provider": "manual_upload",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "local_fallback",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/1788923592727_gcs-test.txt"
+    },
+    "revision": 1,
+    "coordinateSystem": {
+      "unit": "mm",
+      "upAxis": "Y"
+    },
+    "productionTruth": false,
+    "metadata": {
+      "smokeTest": true,
+      "generatedBy": "StorageDiagnosticsPanel"
+    },
+    "createdAt": "2026-09-09T03:13:12.892Z",
+    "updatedAt": "2026-09-09T03:13:13.112Z"
+  },
+  {
+    "id": "art_gcs_test_1788925533641",
+    "projectId": "gen-lang-client-0557963301",
+    "skuCode": "SMOKE-TEST",
+    "kind": "validation_report",
+    "format": "txt",
+    "mimeType": "text/plain",
+    "sizeBytes": 36,
+    "storage": {
+      "provider": "gcs",
+      "bucket": "fes-assets-0557963301",
+      "objectPath": "projects/gen-lang-client-0557963301/sku/SMOKE-TEST/reports/smoke.txt"
+    },
+    "productionTruth": false,
+    "createdAt": "2026-09-09T03:45:33.641Z",
+    "updatedAt": "2026-09-09T03:45:33.641Z"
+  }
+]

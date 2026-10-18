@@ -8,8 +8,20 @@ import type { EngineeringArtifact } from "../../src/shared/artifact.js";
 export class GatewayClient {
   constructor(private config: LocalWorkerConfig) {}
 
+  private getBaseUrl(): string {
+    let base = (this.config.gatewayUrl || "").trim().replace(/\/+$/, "");
+    if (base.endsWith("/api/worker/runtime")) {
+      base = base.substring(0, base.length - "/api/worker/runtime".length);
+    } else if (base.endsWith("/api/worker")) {
+      base = base.substring(0, base.length - "/api/worker".length);
+    }
+    return base;
+  }
+
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const url = `${this.config.gatewayUrl.replace(/\/$/, "")}${path}`;
+    const baseUrl = this.getBaseUrl();
+    const cleanPath = path.startsWith("/") ? path : `/${path}`;
+    const url = `${baseUrl}${cleanPath}`;
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "x-worker-token": this.config.workerToken,

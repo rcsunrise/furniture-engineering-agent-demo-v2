@@ -1,0 +1,12 @@
+{
+  "id": "art-glb-1788252413845-v1ele",
+  "workspaceId": "default-ws",
+  "kind": "ai_reference_mesh",
+  "format": "glb",
+  "mimeType": "model/gltf-binary",
+  "downloadUrl": "/api/worker/artifacts/file/art-glb-1788252413845-v1ele",
+  "originalName": "part_part-arm_job-r1-001.glb",
+  "bytes": 44,
+  "productionTruth": false,
+  "createdAt": "2026-09-01T08:46:53.845Z"
+}

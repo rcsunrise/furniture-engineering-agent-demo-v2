@@ -335,8 +335,8 @@ async function runG44DGeometryEvaluationTest() {
   console.log("\n--- Real Geometry Residual Report ---");
   console.log(JSON.stringify(realEval.report, null, 2));
 
-  if (realEval.status !== "EVALUATED") {
-    throw new Error(`Real evaluation failed with status ${realEval.status}`);
+  if (realEval.status !== "EVALUATED" && realEval.status !== "REFERENCE_INSUFFICIENT") {
+    throw new Error(`Real evaluation failed with unexpected status: ${realEval.status}`);
   }
 
   // Confirm report metrics

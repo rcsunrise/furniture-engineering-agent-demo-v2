@@ -76,7 +76,7 @@ export class ThreeShapeFactory {
     const trySoftSurface = (): THREE.BufferGeometry | null => {
       try {
         const matchedParams = (c.softSurfaceParams || []).find(
-          (sp) => sp.groupName === c.softGroup || (sp as any).softGroup === c.softGroup || sp.componentType === type
+          (sp) => sp.softGroup === c.softGroup || (sp as any).groupName === c.softGroup || sp.componentType === type
         );
         const geom = buildSoftSurfaceComponentGeometry(width, height, depth, c.id, matchedParams);
         if (geom && geom.getAttribute("position") && geom.getAttribute("position").count > 0) {

@@ -203,14 +203,17 @@ Return ONLY a JSON object with key "components": [ ... ].`;
 
   const validatedComponents: ComponentObservation[] = parseResult.data.components.map((c) => ({
     componentIdDraft: c.componentIdDraft,
-    semanticType: c.semanticType,
+    semanticType: c.semanticType as any,
     visibleIn: c.visibleIn,
     symmetryGroup: c.symmetryGroup || undefined,
     confidence: c.confidence,
     accepted: c.accepted ?? true,
     bboxNormalized: c.bboxNormalized,
     keypoints: c.keypoints || [],
-    contours: c.contours || [],
+    contours: (c.contours || []).map((ct: any) => ({
+      ...ct,
+      view: (["top", "front", "side"].includes(ct.view) ? ct.view : "front") as "top" | "front" | "side"
+    })),
     estimatedDimensionsMm: c.estimatedDimensionsMm
       ? {
           width: { value: c.estimatedDimensionsMm.width.value, units: "mm", source: "AI_ESTIMATED", confidence: 0.8, productionTruth: false },
@@ -229,7 +232,7 @@ Return ONLY a JSON object with key "components": [ ... ].`;
     fallback: aiRes.telemetry?.fallbackUsed || false,
     usage: aiRes.telemetry?.usage,
     cost: aiRes.telemetry?.estimatedCostUsd || 0.0024,
-    latencyMs: aiRes.telemetry?.latencyMs,
+    latencyMs: (aiRes.telemetry as any)?.latencyMs ?? 0,
   };
 
   return {

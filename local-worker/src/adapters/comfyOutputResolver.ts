@@ -22,14 +22,25 @@ export interface ResolvedGlbOutput {
 export function resolveDeterministicGlbOutput(params: ResolveOutputParams): ResolvedGlbOutput {
   const { historyData, saveGlbNodeId, outputDir, workspaceId, jobId, partId, promptId } = params;
 
+  // Clean and sanitize outputDir (handle Windows quotes and accidental trailing/leading spaces)
+  const cleanOutputDir = (outputDir || "").trim().replace(/^["']|["']$/g, "").replace(/\\+$/, "");
+
+  // Candidate base directories to search in case user added/omitted subfolders like "3d"
+  const candidateBaseDirs: string[] = [cleanOutputDir];
+  const lowerDir = cleanOutputDir.toLowerCase();
+  if (lowerDir.endsWith("/3d") || lowerDir.endsWith("\\3d")) {
+    candidateBaseDirs.push(path.dirname(cleanOutputDir));
+  } else {
+    candidateBaseDirs.push(path.join(cleanOutputDir, "3d"));
+  }
+
   let foundSubpath: string | null = null;
   let filename = "";
   let subfolder = `mesh/${workspaceId}/${jobId}/${partId}`;
 
-  // 1. Try history metadata first
+  // 1. Try history metadata first across candidate base directories
   if (historyData?.outputs?.[saveGlbNodeId]) {
     const nodeOutput = historyData.outputs[saveGlbNodeId];
-    // Search all arrays in nodeOutput for .glb files
     for (const key of Object.keys(nodeOutput)) {
       const fileList = nodeOutput[key];
       if (Array.isArray(fileList)) {
@@ -38,7 +49,19 @@ export function resolveDeterministicGlbOutput(params: ResolveOutputParams): Reso
           if (name && typeof name === "string" && name.toLowerCase().endsWith(".glb")) {
             filename = name;
             if (fileObj.subfolder) subfolder = fileObj.subfolder;
-            foundSubpath = path.join(outputDir, subfolder, filename);
+            for (const baseDir of candidateBaseDirs) {
+              const testPath = path.join(baseDir, subfolder, filename);
+              if (fs.existsSync(testPath)) {
+                foundSubpath = testPath;
+                break;
+              }
+              // Also test direct baseDir/filename
+              const directTest = path.join(baseDir, filename);
+              if (fs.existsSync(directTest)) {
+                foundSubpath = directTest;
+                break;
+              }
+            }
             break;
           }
         }
@@ -47,30 +70,50 @@ export function resolveDeterministicGlbOutput(params: ResolveOutputParams): Reso
     }
   }
 
-  // 2. Fallback to job-specific output subtree search in outputDir
+  // 2. Fallback to job-specific output subtree search across candidate base directories
   if (!foundSubpath) {
-    const targetDir = path.join(outputDir, "mesh", workspaceId, jobId, partId);
-    if (fs.existsSync(targetDir)) {
-      const candidates = fs.readdirSync(targetDir).filter((f) => f.toLowerCase().endsWith(".glb"));
-      if (candidates.length > 0) {
-        // Deterministically pick candidate matching promptId or first matching prefix
-        const matched = candidates.find((c) => c.includes(promptId)) || candidates[0];
-        filename = matched;
-        foundSubpath = path.join(targetDir, filename);
+    for (const baseDir of candidateBaseDirs) {
+      const targetDir = path.join(baseDir, "mesh", workspaceId, jobId, partId);
+      if (fs.existsSync(targetDir)) {
+        const candidates = fs.readdirSync(targetDir).filter((f) => f.toLowerCase().endsWith(".glb"));
+        if (candidates.length > 0) {
+          const matched = candidates.find((c) => c.includes(promptId)) || candidates[0];
+          filename = matched;
+          foundSubpath = path.join(targetDir, filename);
+          break;
+        }
       }
     }
   }
 
-  // Also check direct prefix path if nested folder wasn't populated
+  // 3. Check direct prefix path across candidate base directories
   if (!foundSubpath) {
-    const directPrefixDir = path.join(outputDir, "mesh", workspaceId, jobId);
-    if (fs.existsSync(directPrefixDir)) {
-      const candidates = fs
-        .readdirSync(directPrefixDir)
-        .filter((f) => f.includes(partId) && f.toLowerCase().endsWith(".glb"));
-      if (candidates.length > 0) {
-        filename = candidates[0];
-        foundSubpath = path.join(directPrefixDir, filename);
+    for (const baseDir of candidateBaseDirs) {
+      const directPrefixDir = path.join(baseDir, "mesh", workspaceId, jobId);
+      if (fs.existsSync(directPrefixDir)) {
+        const candidates = fs
+          .readdirSync(directPrefixDir)
+          .filter((f) => f.includes(partId) && f.toLowerCase().endsWith(".glb"));
+        if (candidates.length > 0) {
+          filename = candidates[0];
+          foundSubpath = path.join(directPrefixDir, filename);
+          break;
+        }
+      }
+    }
+  }
+
+  // 4. Check direct candidate directories for recent GLBs matching part or prompt
+  if (!foundSubpath) {
+    for (const baseDir of candidateBaseDirs) {
+      if (fs.existsSync(baseDir)) {
+        const directFiles = fs.readdirSync(baseDir).filter((f) => f.toLowerCase().endsWith(".glb"));
+        const matched = directFiles.find((f) => f.includes(partId) || f.includes(promptId));
+        if (matched) {
+          filename = matched;
+          foundSubpath = path.join(baseDir, filename);
+          break;
+        }
       }
     }
   }

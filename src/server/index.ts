@@ -6,24 +6,29 @@ import { engineeringRouter } from "./routes/engineering.js";
 import { g3Router } from "./routes/g3Router.js";
 import { workerRouter } from "./routes/worker.js";
 import { workerRuntimeRouter } from "./routes/workerRuntime.js";
+import { assets3dRouter } from "./routes/assets3dRouter.js";
+import { engineeringStorageRouter } from "./routes/engineeringStorageRoutes.js";
 
 async function startServer() {
   const app = express();
   const PORT = 3000;
 
   app.use(cors());
-  app.use(express.json({ limit: "5mb" }));
+  app.use(express.json({ limit: "150mb" }));
+  app.use(express.urlencoded({ limit: "150mb", extended: true }));
 
   // Serve static reference uploads
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   // API Routes
   app.get("/api/health", (_req, res) => res.json({ ok: true, service: "furniture-engineering-agent-demo-v1" }));
+  app.use("/api/engineering/storage", engineeringStorageRouter);
   app.use("/api/g3", g3Router);
   app.use("/api/engineering/g3", g3Router);
   app.use("/api/engineering", engineeringRouter);
   app.use("/api/worker/runtime", workerRuntimeRouter);
   app.use("/api/worker", workerRouter);
+  app.use("/api", assets3dRouter);
 
   // Unified API 404 handler for any unhandled /api requests before Vite / SPA fallback
   app.all("/api/*all", (req, res) => {

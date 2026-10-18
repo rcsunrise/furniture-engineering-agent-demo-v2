@@ -1,0 +1,54 @@
+[
+  {
+    "id": "asset-test-01",
+    "name": "Solid Oak Chair Model",
+    "fileName": "chair.glb",
+    "fileSize": 1048576,
+    "format": "glb",
+    "storageBucket": "engineering-3d-assets",
+    "storagePath": "models/chair.glb",
+    "downloadUrl": "/api/assets/file/asset-test-01/chair.glb",
+    "stats": {
+      "meshCount": 4,
+      "vertexCount": 1250,
+      "triangleCount": 2400,
+      "materialCount": 2,
+      "textureCount": 1,
+      "boundingBox": {
+        "min": [
+          -250,
+          0,
+          -250
+        ],
+        "max": [
+          250,
+          850,
+          250
+        ]
+      },
+      "dimensions": {
+        "width": 500,
+        "height": 850,
+        "depth": 500
+      }
+    },
+    "materials": [
+      {
+        "name": "Wood_Oak",
+        "type": "MeshStandardMaterial",
+        "color": "#c19a6b",
+        "wireframe": false,
+        "hasTexture": true
+      }
+    ],
+    "coordinateSystem": {
+      "detectedUp": "Y_UP",
+      "targetUp": "Z_UP",
+      "conversionApplied": "Y_TO_Z"
+    },
+    "metadata": {},
+    "productionTruth": false,
+    "createdAt": "2026-09-05T01:34:55.610Z",
+    "updatedAt": "2026-09-05T01:34:55.611Z"
+  }
+]

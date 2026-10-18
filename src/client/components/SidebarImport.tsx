@@ -10,7 +10,7 @@ interface SidebarImportProps {
   onRetryUpload?: () => void;
   isDragging: boolean;
   setIsDragging: (val: boolean) => void;
-  fileInputRef: React.RefObject<HTMLInputElement>;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
   onUploadFile: (file: File) => void;
   onLoadSample: (sampleName: string) => void;
   selectedComponentId: string | null;
@@ -77,7 +77,7 @@ export function SidebarImport({
       >
         <div style={{ fontSize: 24, marginBottom: 4 }}>{isUploading ? "⏳" : "📊"}</div>
         <div style={{ color: "#fff", fontWeight: "bold", fontSize: 13 }}>
-          {isUploading ? "Parsing workbook..." : "拖拽 Excel 到此处上传"}
+          {isUploading ? "正在解析工程表..." : "拖拽 Excel 到此处上传"}
         </div>
         <div style={{ color: "#888", fontSize: 11, marginTop: 4 }}>
           {isUploading ? "请稍候，正验证解析与生成 CAD-IR..." : "或点击浏览 (.xlsx / .xls)"}
@@ -87,7 +87,7 @@ export function SidebarImport({
           type="file"
           accept=".xlsx,.xls"
           disabled={isUploading}
-          style={{ display: "none" }}
+          style={{ position: "absolute", width: 0, height: 0, opacity: 0, overflow: "hidden" }}
           onChange={(e) => {
             if (isUploading) return;
             const f = e.target.files?.[0];
@@ -215,12 +215,12 @@ export function SidebarImport({
               fontSize: 12,
             }}
           >
-            <div style={{ fontWeight: "bold", color: "#fff", fontSize: 13 }}>SKU: {fes.sku}</div>
+            <div style={{ fontWeight: "bold", color: "#fff", fontSize: 13 }}>款号 (SKU): {fes.sku}</div>
             <div style={{ color: "#aaa", marginTop: 4 }}>
-              Product Type: <strong>{fes.productType}</strong>
+              产品类别: <strong>{fes.productType}</strong>
             </div>
             <div style={{ color: "#aaa", marginTop: 2 }}>
-              Overall: {fes.overall.width} × {fes.overall.depth} × {fes.overall.height} {fes.units}
+              整体外形: {fes.overall.width} × {fes.overall.depth} × {fes.overall.height} {fes.units}
             </div>
           </div>
 
@@ -228,11 +228,11 @@ export function SidebarImport({
             部件维度列表 ({fes.components.length})：
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {fes.components.map((c) => {
+            {fes.components.map((c, cIdx) => {
               const isSelected = selectedComponentId === c.id;
               return (
                 <div
-                  key={c.id}
+                  key={`${c.id || "comp"}_${cIdx}`}
                   onClick={() => onSelectComponent(isSelected ? null : c.id)}
                   style={{
                     padding: "6px 8px",

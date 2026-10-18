@@ -159,7 +159,7 @@ export function exportCadToDxf(doc: CadDocument): string {
       add(10, entity.x.toFixed(3));
       add(20, entity.y.toFixed(3));
       add(30, 0.0);
-      add(40, entity.fontSize || 16.0);
+      add(40, (entity as any).fontSize || 16.0);
       add(1, entity.text);
     }
   }

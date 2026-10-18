@@ -1,0 +1,59 @@
+[
+  {
+    "id": "scene-test-01",
+    "name": "Updated Living Room",
+    "instances": [
+      {
+        "instanceId": "inst-001",
+        "assetId": "asset-test-01",
+        "name": "Solid Oak Chair Model",
+        "transform": {
+          "position": [
+            0,
+            0,
+            0
+          ],
+          "rotation": [
+            0,
+            45,
+            0
+          ],
+          "scale": [
+            1,
+            1,
+            1
+          ]
+        },
+        "visible": true,
+        "locked": false,
+        "coordinateAdapter": {
+          "sourceUp": "Y_UP",
+          "targetUp": "FES",
+          "alignGround": true,
+          "centerOrigin": true
+        }
+      }
+    ],
+    "camera": {
+      "position": [
+        0,
+        500,
+        1500
+      ],
+      "target": [
+        0,
+        200,
+        0
+      ],
+      "fov": 45
+    },
+    "viewMode": "wireframe",
+    "environment": {
+      "background": "#121216",
+      "grid": true,
+      "shadows": true
+    },
+    "createdAt": "2026-09-05T01:34:55.616Z",
+    "updatedAt": "2026-09-05T01:34:55.620Z"
+  }
+]

@@ -9,6 +9,7 @@ import { validateEngineeringData } from "../validate.js";
 import { runReasoning } from "../ai/provider.js";
 import { FurnitureEngineeringSchema } from "../../shared/fes.js";
 import { alignmentRouter } from "./alignmentRouter.js";
+import { geometryReconstructionRouter } from "./geometryReconstruction.js";
 import { globalEngineeringSessionStore } from "../engineeringSessionStore.js";
 import {
   rateLimiterMiddleware,
@@ -20,6 +21,7 @@ import {
 
 export const engineeringRouter = Router();
 engineeringRouter.use(alignmentRouter);
+engineeringRouter.use("/sessions", geometryReconstructionRouter);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 // Safe Multer Upload Middleware
@@ -161,8 +163,28 @@ engineeringRouter.get("/excel/samples", (_req, res) => {
 // POST load a specific sample file by name
 engineeringRouter.post("/excel/sample/:name", (req, res) => {
   try {
-    const filename = req.params.name;
-    const samplePath = path.join(process.cwd(), "sample", filename);
+    let filename = req.params.name;
+    let samplePath = path.join(process.cwd(), "sample", filename);
+    if (!fs.existsSync(samplePath) && !filename.endsWith(".xlsx")) {
+      samplePath = path.join(process.cwd(), "sample", `${filename}.xlsx`);
+      if (fs.existsSync(samplePath)) {
+        filename = `${filename}.xlsx`;
+      }
+    }
+    if (!fs.existsSync(samplePath)) {
+      // Check for common aliases or substring match in sample directory
+      const sampleDir = path.join(process.cwd(), "sample");
+      if (fs.existsSync(sampleDir)) {
+        const files = fs.readdirSync(sampleDir).filter((f) => f.endsWith(".xlsx"));
+        const matched = files.find((f) => f.toLowerCase().includes(req.params.name.toLowerCase())) ||
+                        files.find((f) => f.includes("sofa")) ||
+                        files[0];
+        if (matched) {
+          filename = matched;
+          samplePath = path.join(sampleDir, matched);
+        }
+      }
+    }
     if (!fs.existsSync(samplePath)) {
       return res.status(404).json({ error: { message: `Sample file '${filename}' not found` } });
     }

@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import type { LoftSection, CadProfileCommand } from "../../../shared/fes.js";
 import { resampleClosedProfile } from "./profileResampler.js";
-import { mirrorBufferGeometryX } from "./profileMirror.ts";
+import { mirrorBufferGeometryX } from "./profileMirror.js";
 
 export interface LoftSectionRuntime {
   sectionT: number;
@@ -52,7 +52,7 @@ export function buildAsymmetricLoftGeometry(
       outerOffset: (s as any).outerOffset,
       topOffset: (s as any).topOffset,
       bottomOffset: (s as any).bottomOffset,
-      sectionRotation: s.sectionRotation,
+      sectionRotation: (s as any).sectionRotation,
       bulge: s.bulge,
     }));
   } else {

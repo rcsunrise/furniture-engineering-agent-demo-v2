@@ -21,7 +21,7 @@ export function EngineeringSummary({ uploadState, fes, selectedComponentId }: En
       <h3 style={{ margin: "0 0 12px 0", fontSize: 15, color: "#fff" }}>工程结构指标</h3>
       {uploadState === "success" && fes ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 13, color: "#ccc" }}>
-          <div>SKU Code: <strong style={{ color: "#fff" }}>{fes.sku}</strong></div>
+          <div>款号 (SKU): <strong style={{ color: "#fff" }}>{fes.sku}</strong></div>
           <div>单位: <strong>{fes.units}</strong></div>
           <div>组件数量: <strong>{fes.components.length}</strong></div>
           <div>外形宽度 (X): <strong>{fes.overall.width} mm</strong></div>

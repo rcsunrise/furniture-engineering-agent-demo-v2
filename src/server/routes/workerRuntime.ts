@@ -4,7 +4,7 @@ import path from "path";
 import { workerAuthMiddleware } from "../worker/workerAuth.js";
 import { globalWorkerRegistry, UnknownWorkerError } from "../worker/workerRegistry.js";
 import { globalWorkerLeaseService, LeaseConflictError } from "../worker/workerLeaseService.js";
-import { globalWorkerJobStore, JobNotFoundError, WorkspaceMismatchError } from "../worker/workerJobStore.ts";
+import { globalWorkerJobStore, JobNotFoundError, WorkspaceMismatchError } from "../worker/workerJobStore.js";
 import { IllegalWorkerStateTransitionError } from "../worker/workerStateMachine.js";
 import {
   WorkerRegistrationRequestSchema,
@@ -54,14 +54,14 @@ workerRuntimeRouter.post("/register", (req: Request, res: Response) => {
 
 // 2. POST /api/worker/runtime/:workerId/heartbeat - Heartbeat check-in
 workerRuntimeRouter.post("/:workerId/heartbeat", (req: Request, res: Response) => {
-  const { workerId } = req.params;
+  const workerId = Array.isArray(req.params.workerId) ? req.params.workerId[0] : req.params.workerId;
   const parseResult = WorkerHeartbeatRequestSchema.safeParse(req.body || {});
   if (!parseResult.success) {
     const details = parseResult.error.issues.map((issue) => {
       const fieldPath = issue.path.join(".") || "body";
       let expected = issue.message;
-      if (issue.code === "invalid_enum_value") {
-        expected = issue.options.join(" | ");
+      if ((issue as any).code === "invalid_enum_value") {
+        expected = (issue as any).options?.join(" | ") || issue.message;
       } else if (issue.code === "invalid_type") {
         expected = issue.expected;
       }
@@ -116,7 +116,7 @@ workerRuntimeRouter.post("/:workerId/heartbeat", (req: Request, res: Response) =
 
 // 3. GET /api/worker/runtime/:workerId/jobs/next - Poll next available job for worker
 workerRuntimeRouter.get("/:workerId/jobs/next", (req: Request, res: Response) => {
-  const { workerId } = req.params;
+  const workerId = Array.isArray(req.params.workerId) ? req.params.workerId[0] : req.params.workerId;
   const worker = globalWorkerRegistry.getWorker(workerId);
   if (!worker) {
     res.status(404).json({
@@ -153,7 +153,8 @@ workerRuntimeRouter.get("/:workerId/jobs/next", (req: Request, res: Response) =>
 
 // 4. POST /api/worker/runtime/:workerId/jobs/:jobId/claim - Claim job
 workerRuntimeRouter.post("/:workerId/jobs/:jobId/claim", (req: Request, res: Response) => {
-  const { workerId, jobId } = req.params;
+  const workerId = Array.isArray(req.params.workerId) ? req.params.workerId[0] : req.params.workerId;
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
   const worker = globalWorkerRegistry.getWorker(workerId);
   if (!worker) {
     res.status(404).json({
@@ -239,7 +240,8 @@ workerRuntimeRouter.post("/:workerId/jobs/:jobId/claim", (req: Request, res: Res
 
 // 5. POST /api/worker/runtime/:workerId/jobs/:jobId/start - Mark job running
 workerRuntimeRouter.post("/:workerId/jobs/:jobId/start", (req: Request, res: Response) => {
-  const { workerId, jobId } = req.params;
+  const workerId = Array.isArray(req.params.workerId) ? req.params.workerId[0] : req.params.workerId;
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
   const worker = globalWorkerRegistry.getWorker(workerId);
   if (!worker) {
     res.status(404).json({
@@ -349,7 +351,8 @@ function normalizeWorkerJobResultBody(rawBody: any): any {
 
 // 6. POST /api/worker/runtime/:workerId/jobs/:jobId/result - Report job completed or failed
 workerRuntimeRouter.post("/:workerId/jobs/:jobId/result", (req: Request, res: Response) => {
-  const { workerId, jobId } = req.params;
+  const workerId = Array.isArray(req.params.workerId) ? req.params.workerId[0] : req.params.workerId;
+  const jobId = Array.isArray(req.params.jobId) ? req.params.jobId[0] : req.params.jobId;
   const normalizedBody = normalizeWorkerJobResultBody(req.body || {});
   const parseResult = WorkerJobResultRequestSchema.safeParse(normalizedBody);
   if (!parseResult.success) {

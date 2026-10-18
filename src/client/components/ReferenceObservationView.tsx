@@ -5,12 +5,12 @@ import type {
   GeometryInferenceReport,
   ComponentObservation,
 } from "../../shared/g3_inference.js";
-import type { FurnitureEngineeringSchema, ValidationReport } from "../../shared/fes.js";
+import type { FurnitureEngineering, ValidationReport } from "../../shared/fes.js";
 import { triggerFileDownload } from "../utils/cadExporter.js";
 import { readJsonApiResponse } from "../api.js";
 
 interface ReferenceObservationViewProps {
-  onLoadDraftAsFes: (fes: FurnitureEngineeringSchema) => void;
+  onLoadDraftAsFes: (fes: FurnitureEngineering) => void;
 }
 
 interface ImageSlotState {
@@ -38,7 +38,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
   const [obsDoc, setObsDoc] = useState<ReferenceObservationDocument | null>(null);
   const [report, setReport] = useState<GeometryInferenceReport | null>(null);
   const [draft, setDraft] = useState<FesGeometryDraft | null>(null);
-  const [solvedFes, setSolvedFes] = useState<FurnitureEngineeringSchema | null>(null);
+  const [solvedFes, setSolvedFes] = useState<FurnitureEngineering | null>(null);
   const [validation, setValidation] = useState<ValidationReport | null>(null);
   const [telemetry, setTelemetry] = useState<any | null>(null);
 
@@ -209,7 +209,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
         body: formData,
       });
 
-      const data = await readJsonApiResponse(res, "/api/g3/references/analyze", "POST");
+      const data: any = await readJsonApiResponse(res, "/api/g3/references/analyze", "POST");
 
       setActiveStep(3);
       setStatusMessage("3/5 已完成 Calibration Adapter 尺寸规范映射...");
@@ -254,7 +254,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ observationDocument: updatedDoc }),
       });
-      const data = await readJsonApiResponse(res, "/api/engineering/g3/solve", "POST");
+      const data: any = await readJsonApiResponse(res, "/api/engineering/g3/solve", "POST");
       setReport(data.inferenceReport);
       setDraft(data.fesDraft);
       setSolvedFes(data.fes);
@@ -292,7 +292,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <h2 style={{ margin: 0, fontSize: 20, color: "#90caf9", fontWeight: 700 }}>
-              Gate G3-AB: Multimodal Reference Upload & Constraint Inference
+              Gate G3-AB: 多模态参考图特征提取与几何约束求解
             </h2>
             {validation && (
               <span
@@ -306,7 +306,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
                   boxShadow: isPass ? "0 0 10px rgba(46,125,50,0.5)" : "0 0 10px rgba(198,40,40,0.5)",
                 }}
               >
-                FES validation: {isPass ? "PASS" : "FAIL"}
+                FES 工程校验: {isPass ? "通过 (PASS)" : "未通过 (FAIL)"}
               </span>
             )}
           </div>
@@ -737,17 +737,17 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
                       {c.componentIdDraft} ({Math.round(c.confidence * 100)}%)
                     </text>
 
-                    {c.keypoints.map((kp) => {
+                    {c.keypoints.map((kp, kpIdx) => {
                       const kx = 50 + kp.u * 900;
                       const ky = 50 + kp.v * 500;
-                      return <circle key={kp.id} cx={kx} cy={ky} r={4} fill="#ffeb3b" stroke="#000" strokeWidth="1" />;
+                      return <circle key={`${kp.id || "kp"}_${kpIdx}`} cx={kx} cy={ky} r={4} fill="#ffeb3b" stroke="#000" strokeWidth="1" />;
                     })}
 
-                    {c.contours.map((cnt) => {
+                    {c.contours.map((cnt, cntIdx) => {
                       const pointsStr = cnt.points
                         .map((pt) => `${50 + pt.u * 900},${50 + pt.v * 500}`)
                         .join(" ");
-                      return <polyline key={cnt.profileId} points={pointsStr} fill="none" stroke="#ff4081" strokeWidth="2" />;
+                      return <polyline key={`${cnt.profileId || "cnt"}_${cntIdx}`} points={pointsStr} fill="none" stroke="#ff4081" strokeWidth="2" />;
                     })}
                   </g>
                 );
@@ -762,20 +762,20 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
         {/* Multimodal Telemetry & Cost */}
         <div style={{ background: "#1c1c24", padding: 16, borderRadius: 8, border: "1px solid #2d2d3d" }}>
           <h3 style={{ marginTop: 0, fontSize: 15, color: "#64b5f6" }}>
-            AI 召唤 Remote Telemetry & Cost
+            AI 调用远端遥测与成本统计 (Remote Telemetry & Cost)
           </h3>
 
           {telemetry ? (
             <div style={{ fontSize: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div style={{ background: "#121218", padding: 8, borderRadius: 4 }}>
-                  <span style={{ color: "#aaa" }}>Provider / Model:</span>
+                  <span style={{ color: "#aaa" }}>服务商 / 模型:</span>
                   <div style={{ fontWeight: "bold", color: "#81c784" }}>
                     {telemetry.provider} / {telemetry.resolvedModel}
                   </div>
                 </div>
                 <div style={{ background: "#121218", padding: 8, borderRadius: 4 }}>
-                  <span style={{ color: "#aaa" }}>Estimated Cost:</span>
+                  <span style={{ color: "#aaa" }}>预估调用成本:</span>
                   <div style={{ fontWeight: "bold", color: "#ffd54f" }}>
                     ${telemetry.estimatedCostUsd?.toFixed(6) ?? "0.002400"} USD
                   </div>
@@ -784,21 +784,21 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
 
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 10 }}>
                 <div style={{ background: "#121218", padding: 6, borderRadius: 4 }}>
-                  <span style={{ color: "#aaa", fontSize: 10 }}>Latency:</span>
+                  <span style={{ color: "#aaa", fontSize: 10 }}>响应延迟:</span>
                   <div style={{ fontWeight: "bold", color: "#64b5f6" }}>{telemetry.latencyMs ?? 1420} ms</div>
                 </div>
                 <div style={{ background: "#121218", padding: 6, borderRadius: 4 }}>
-                  <span style={{ color: "#aaa", fontSize: 10 }}>Prompt Tokens:</span>
+                  <span style={{ color: "#aaa", fontSize: 10 }}>输入 Tokens:</span>
                   <div style={{ fontWeight: "bold", color: "#fff" }}>{telemetry.usage?.promptTokens ?? 1840}</div>
                 </div>
                 <div style={{ background: "#121218", padding: 6, borderRadius: 4 }}>
-                  <span style={{ color: "#aaa", fontSize: 10 }}>Completion Tokens:</span>
+                  <span style={{ color: "#aaa", fontSize: 10 }}>输出 Tokens:</span>
                   <div style={{ fontWeight: "bold", color: "#fff" }}>{telemetry.usage?.completionTokens ?? 620}</div>
                 </div>
               </div>
 
               <div style={{ color: "#666", fontSize: 10, fontFamily: "monospace" }}>
-                Request ID: {telemetry.requestId || `req_${Date.now()}`}
+                请求 ID: {telemetry.requestId || `req_${Date.now()}`}
               </div>
             </div>
           ) : (
@@ -818,7 +818,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
                 <thead>
                   <tr style={{ borderBottom: "1px solid #3d3d4e", textAlign: "left", color: "#888" }}>
                     <th style={{ padding: "4px" }}>约束方程</th>
-                    <th style={{ padding: "4px" }}>残差 $\Delta$</th>
+                    <th style={{ padding: "4px" }}>残差 Δ</th>
                     <th style={{ padding: "4px" }}>状态</th>
                   </tr>
                 </thead>
@@ -829,7 +829,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
                       <td style={{ padding: "4px", color: r.residualMm < 10 ? "#a5d6a7" : "#ffcc80" }}>{r.residualMm} mm</td>
                       <td style={{ padding: "4px" }}>
                         <span style={{ padding: "1px 5px", background: r.satisfied ? "#2e7d32" : "#c62828", color: "#fff", borderRadius: 3, fontSize: 10 }}>
-                          {r.satisfied ? "SATISFIED" : "WARNING"}
+                          {r.satisfied ? "已满足" : "超差"}
                         </span>
                       </td>
                     </tr>
@@ -846,15 +846,15 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
       {/* Component Observation List */}
       <div style={{ background: "#1c1c24", padding: 16, borderRadius: 8, border: "1px solid #2d2d3d" }}>
         <h3 style={{ marginTop: 0, fontSize: 15, color: "#64b5f6" }}>
-          提取出的组件清单 ({obsDoc?.components.length ?? 0} Components)
+          提取出的组件清单 ({obsDoc?.components.length ?? 0} 个构件)
         </h3>
 
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-          {obsDoc?.components.map((c) => {
+          {obsDoc?.components.map((c, cIdx) => {
             const isAccepted = c.accepted !== false;
             return (
               <div
-                key={c.componentIdDraft}
+                key={`${c.componentIdDraft || "comp"}_${cIdx}`}
                 style={{
                   padding: 10,
                   background: isAccepted ? "#121218" : "#221a1a",
@@ -877,7 +877,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
                       cursor: "pointer",
                     }}
                   >
-                    {isAccepted ? "ACCEPTED" : "REJECTED"}
+                    {isAccepted ? "已采纳" : "已剔除"}
                   </button>
                 </div>
 

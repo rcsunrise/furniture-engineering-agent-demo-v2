@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 
 export interface RateLimitBucketOptions {
+  bucketName?: string;
   windowMs: number;
   maxRequests: number;
   code?: string;
@@ -24,7 +25,7 @@ const idempotencyCache = new Map<string, { timestamp: number; responseData: any 
 
 export function rateLimiterMiddleware(options: RateLimitBucketOptions) {
   return (req: Request, res: Response, next: NextFunction) => {
-    const bucketName = options.bucketName;
+    const bucketName = options.bucketName || "default";
     const ip = (req.headers["x-forwarded-for"] as string) || req.ip || "127.0.0.1";
     const key = `${ip}`;
 

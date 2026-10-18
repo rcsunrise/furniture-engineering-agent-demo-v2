@@ -29,8 +29,8 @@ export function EngineeringAlignmentPanel({
   const [selectedCompId, setSelectedCompId] = useState<string>(activeSession?.componentId || "ARM-L-OUT");
   const [isRunning, setIsRunning] = useState(false);
 
-  const availableComponents = fes?.assembly?.components || [];
-  const hasFes = Boolean(fes && fes.assembly);
+  const availableComponents = (fes as any)?.assembly?.components || fes?.components || [];
+  const hasFes = Boolean(fes && ((fes as any).assembly || fes.components));
 
   const handleRun = async () => {
     if (!activeSession) return;
@@ -64,9 +64,9 @@ export function EngineeringAlignmentPanel({
         {sessionsList.length > 0 && (
           <div style={{ marginTop: 16, maxWidth: 480, margin: "16px auto", textAlign: "left" }}>
             <h4 style={{ color: "#fff" }}>Available Sessions:</h4>
-            {sessionsList.map((s) => (
+            {sessionsList.map((s, sIdx) => (
               <div
-                key={s.sessionId}
+                key={`${s.sessionId || "session"}_${sIdx}`}
                 onClick={() => onSelectSession?.(s)}
                 style={{
                   padding: 10,
@@ -134,7 +134,7 @@ export function EngineeringAlignmentPanel({
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <h3 style={{ margin: 0, color: "#fff", fontSize: 18 }}>
-              Engineering Alignment Session (G4-4E)
+              工程对齐会话 (Engineering Alignment G4-4E)
             </h3>
             <span
               style={{
@@ -147,7 +147,7 @@ export function EngineeringAlignmentPanel({
                 fontWeight: "bold",
               }}
             >
-              productionTruth: false
+              生产真值 productionTruth: 否
             </span>
           </div>
 
@@ -162,7 +162,7 @@ export function EngineeringAlignmentPanel({
                 fontWeight: "bold",
               }}
             >
-              REAL ARTIFACT
+              真实产物 (REAL ARTIFACT)
             </span>
             <span
               style={{
@@ -174,37 +174,43 @@ export function EngineeringAlignmentPanel({
                 fontWeight: "bold",
               }}
             >
-              {hasFes ? "REAL FES" : "NO FES DATA"}
+              {hasFes ? "FES 已就绪" : "缺少 FES 工程数据"}
             </span>
           </div>
         </div>
 
         {/* Metadata Grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12, fontSize: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: 12, fontSize: 12 }}>
           <div>
-            <span style={{ color: "#aaa", display: "block" }}>Session ID</span>
+            <span style={{ color: "#aaa", display: "block" }}>会话编号 (Session ID)</span>
             <span style={{ color: "#80cbc4", fontFamily: "monospace", fontWeight: "bold" }}>
               {session.sessionId}
             </span>
           </div>
           <div>
-            <span style={{ color: "#aaa", display: "block" }}>Artifact ID</span>
+            <span style={{ color: "#aaa", display: "block" }}>对应部件 (Part ID)</span>
             <span style={{ color: "#ffd54f", fontFamily: "monospace", fontWeight: "bold" }}>
-              {session.artifactId}
+              {session.partId || "N/A"}
             </span>
           </div>
           <div>
-            <span style={{ color: "#aaa", display: "block" }}>Active SKU</span>
+            <span style={{ color: "#aaa", display: "block" }}>规范工程组件 (Component)</span>
+            <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
+              {session.canonicalComponentId || session.componentId || "未映射"}
+            </span>
+          </div>
+          <div>
+            <span style={{ color: "#aaa", display: "block" }}>绑定方式 (Binding)</span>
+            <span style={{ color: "#ffb74d", fontWeight: "bold", fontFamily: "monospace", fontSize: 11 }}>
+              {session.bindingMethod === "EXPLICIT_ALIAS" ? "显式别名匹配" : session.bindingMethod || "显式绑定"}
+            </span>
+          </div>
+          <div>
+            <span style={{ color: "#aaa", display: "block" }}>当前款号 (SKU)</span>
             <span style={{ color: "#fff", fontWeight: "bold" }}>{fes?.sku || session.sku || "N/A"}</span>
           </div>
           <div>
-            <span style={{ color: "#aaa", display: "block" }}>Mapped Component</span>
-            <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
-              {session.componentId || "UNMAPPED"}
-            </span>
-          </div>
-          <div>
-            <span style={{ color: "#aaa", display: "block" }}>Pipeline Status</span>
+            <span style={{ color: "#aaa", display: "block" }}>管线状态</span>
             <span
               style={{
                 fontSize: 11,
@@ -220,7 +226,7 @@ export function EngineeringAlignmentPanel({
                 fontWeight: "bold",
               }}
             >
-              {session.status}
+              {session.status === "COMPLETED" ? "已完成" : session.status === "FAILED" ? "失败" : "运行中"}
             </span>
           </div>
         </div>
@@ -240,12 +246,12 @@ export function EngineeringAlignmentPanel({
           <div>
             {!hasFes ? (
               <div style={{ color: "#ff8a80", fontWeight: "bold", fontSize: 14 }}>
-                ⚠️ ENGINEERING DATA REQUIRED — Load FES / Excel document first before running alignment.
+                ⚠️ 需要工程数据 — 执行对齐前，请先载入 FES 工程表或 Excel 文档。
               </div>
             ) : (
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <label style={{ fontSize: 12, fontWeight: "bold", color: "#aaa" }}>
-                  Map Part to FES Component:
+                  映射部件至 FES 组件:
                 </label>
                 <select
                   value={selectedCompId}
@@ -263,9 +269,9 @@ export function EngineeringAlignmentPanel({
                     fontWeight: "bold",
                   }}
                 >
-                  {availableComponents.map((c) => (
+                  {availableComponents.map((c: any) => (
                     <option key={c.id} value={c.id}>
-                      {c.id} ({c.name || "Component"}) - [{c.size.x}x{c.size.y}x{c.size.z} mm]
+                      {c.id} ({c.name || "工程组件"}) - [{c.size.x}x{c.size.y}x{c.size.z} mm]
                     </option>
                   ))}
                 </select>
@@ -288,7 +294,7 @@ export function EngineeringAlignmentPanel({
                   fontWeight: "bold",
                 }}
               >
-                Preview in 3D View
+                👁️ 在 3D 视口中预览
               </button>
             )}
 
@@ -306,7 +312,7 @@ export function EngineeringAlignmentPanel({
                 fontSize: 13,
               }}
             >
-              {isRunning ? "Running Alignment Pipeline..." : "Run Engineering Alignment"}
+              {isRunning ? "正在执行对齐管线..." : "📐 执行工程对齐分析"}
             </button>
           </div>
         </div>
@@ -324,11 +330,17 @@ export function EngineeringAlignmentPanel({
       >
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h4 style={{ margin: 0, color: "#fff", fontSize: 14 }}>
-            Visual Inspection & 2D Contour Overlay
+            可视化检验与 2D 轮廓叠加比对
           </h4>
           <div style={{ display: "flex", gap: 6 }}>
-            {(["RAW AI", "NORMALIZED AI", "DIMENSION ALIGNED AI", "PLACED AI", "ENGINEERING OVERLAY"] as VisualMode[]).map(
-              (mode) => (
+            {([
+              { mode: "RAW AI", label: "原始 AI 网格" },
+              { mode: "NORMALIZED AI", label: "归一化网格" },
+              { mode: "DIMENSION ALIGNED AI", label: "尺寸对齐网格" },
+              { mode: "PLACED AI", label: "装配落位网格" },
+              { mode: "ENGINEERING OVERLAY", label: "工程轮廓叠加" },
+            ] as { mode: VisualMode; label: string }[]).map(
+              ({ mode, label }) => (
                 <button
                   key={mode}
                   onClick={() => setVisualMode(mode)}
@@ -343,7 +355,7 @@ export function EngineeringAlignmentPanel({
                     cursor: "pointer",
                   }}
                 >
-                  {mode}
+                  {label}
                 </button>
               )
             )}
@@ -363,7 +375,11 @@ export function EngineeringAlignmentPanel({
           }}
         >
           <div style={{ display: "flex", gap: 12, marginBottom: 10 }}>
-            {(["FRONT", "SIDE", "TOP"] as ContourView[]).map((v) => (
+            {([
+              { v: "FRONT", label: "正视投影 (FRONT)" },
+              { v: "SIDE", label: "侧视投影 (SIDE)" },
+              { v: "TOP", label: "俯视投影 (TOP)" },
+            ] as { v: ContourView; label: string }[]).map(({ v, label }) => (
               <button
                 key={v}
                 onClick={() => setContourView(v)}
@@ -378,7 +394,7 @@ export function EngineeringAlignmentPanel({
                   cursor: "pointer",
                 }}
               >
-                {v} VIEW PROJECTION
+                {label}
               </button>
             ))}
           </div>
@@ -405,39 +421,39 @@ export function EngineeringAlignmentPanel({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #2a2a35", paddingBottom: 6 }}>
-            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>STAGE 1: Coordinate Normalization (G4-4A)</strong>
+            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>阶段 1: 空间坐标系归一化 (G4-4A)</strong>
             <span style={{ fontSize: 11, color: norm ? "#a7ffeb" : "#aaa" }}>
-              {norm?.status || "PENDING"}
+              {norm?.status === "NORMALIZED" ? "已完成" : norm?.status || "待执行"}
             </span>
           </div>
 
           {norm ? (
             <div style={{ fontSize: 12, display: "grid", gap: 6 }}>
               <div>
-                <span style={{ color: "#aaa" }}>Origin Mode:</span>{" "}
-                <span style={{ color: "#fff" }}>{norm.transform?.originMode || "bottom_center"}</span>
+                <span style={{ color: "#aaa" }}>原点对齐模式:</span>{" "}
+                <span style={{ color: "#fff" }}>{norm.transform?.originMode === "bottom_center" ? "底面中心 (bottom_center)" : norm.transform?.originMode}</span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Rotation Euler:</span>{" "}
+                <span style={{ color: "#aaa" }}>欧拉旋转角:</span>{" "}
                 <span style={{ color: "#ffd54f" }}>
                   X: {norm.transform?.rotationEulerDeg.x}°, Y: {norm.transform?.rotationEulerDeg.y}°, Z: {norm.transform?.rotationEulerDeg.z}°
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Raw Bounds Size:</span>{" "}
+                <span style={{ color: "#aaa" }}>原始包围盒尺寸:</span>{" "}
                 <span style={{ color: "#ccc" }}>
                   {norm.rawBounds.size.x.toFixed(1)} x {norm.rawBounds.size.y.toFixed(1)} x {norm.rawBounds.size.z.toFixed(1)} mm
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Normalized Bounds Size:</span>{" "}
+                <span style={{ color: "#aaa" }}>归一化包围盒尺寸:</span>{" "}
                 <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
                   {norm.normalizedBounds?.size.x.toFixed(1)} x {norm.normalizedBounds?.size.y.toFixed(1)} x {norm.normalizedBounds?.size.z.toFixed(1)} mm
                 </span>
               </div>
             </div>
           ) : (
-            <div style={{ color: "#777", fontSize: 12 }}>Pending normalization step...</div>
+            <div style={{ color: "#777", fontSize: 12 }}>等待坐标归一化步骤...</div>
           )}
         </div>
 
@@ -451,41 +467,41 @@ export function EngineeringAlignmentPanel({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #2a2a35", paddingBottom: 6 }}>
-            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>STAGE 2: Dimension Alignment (G4-4B)</strong>
+            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>阶段 2: 目标尺寸对齐 (G4-4B)</strong>
             <span style={{ fontSize: 11, color: dim ? "#a7ffeb" : "#aaa" }}>
-              {dim?.status || "PENDING"}
+              {dim?.status === "ALIGNED" ? "已完成" : dim?.status || "待执行"}
             </span>
           </div>
 
           {dim ? (
             <div style={{ fontSize: 12, display: "grid", gap: 6 }}>
               <div>
-                <span style={{ color: "#aaa" }}>Target FES Size:</span>{" "}
+                <span style={{ color: "#aaa" }}>FES 目标尺寸:</span>{" "}
                 <span style={{ color: "#fff", fontWeight: "bold" }}>
                   {dim.targetSize.x} x {dim.targetSize.y} x {dim.targetSize.z} mm
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Applied Uniform Scale:</span>{" "}
+                <span style={{ color: "#aaa" }}>等比缩放系数:</span>{" "}
                 <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
                   s = {dim.appliedScale.x.toFixed(4)}
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Residual mm:</span>{" "}
+                <span style={{ color: "#aaa" }}>残差偏差 (Residual):</span>{" "}
                 <span style={{ color: "#ff8a80" }}>
                   ΔX: {dim.residualMm.x.toFixed(1)}mm, ΔY: {dim.residualMm.y.toFixed(1)}mm, ΔZ: {dim.residualMm.z.toFixed(1)}mm
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Aspect Distortion:</span>{" "}
+                <span style={{ color: "#aaa" }}>纵横比形变:</span>{" "}
                 <span style={{ color: dim.distortionRisk ? "#ffab40" : "#81c784", fontWeight: "bold" }}>
                   {dim.aspectDistortion} ({dim.distortionLevel})
                 </span>
               </div>
             </div>
           ) : (
-            <div style={{ color: "#777", fontSize: 12 }}>Pending dimension alignment step...</div>
+            <div style={{ color: "#777", fontSize: 12 }}>等待尺寸对齐步骤...</div>
           )}
         </div>
 
@@ -499,33 +515,33 @@ export function EngineeringAlignmentPanel({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #2a2a35", paddingBottom: 6 }}>
-            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>STAGE 3: Component Placement (G4-4C)</strong>
+            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>阶段 3: 组件装配落位 (G4-4C)</strong>
             <span style={{ fontSize: 11, color: place ? "#a7ffeb" : "#aaa" }}>
-              {place?.status || "PENDING"}
+              {place?.status === "PLACED" ? "已完成" : place?.status || "待执行"}
             </span>
           </div>
 
           {place ? (
             <div style={{ fontSize: 12, display: "grid", gap: 6 }}>
               <div>
-                <span style={{ color: "#aaa" }}>Target Position:</span>{" "}
+                <span style={{ color: "#aaa" }}>目标装配坐标:</span>{" "}
                 <span style={{ color: "#fff" }}>
                   ({place.targetPosition.x}, {place.targetPosition.y}, {place.targetPosition.z}) mm
                 </span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Anchor Mode:</span>{" "}
+                <span style={{ color: "#aaa" }}>锚定模式:</span>{" "}
                 <span style={{ color: "#80cbc4" }}>{place.anchorMode}</span>
               </div>
               <div>
-                <span style={{ color: "#aaa" }}>Applied Position:</span>{" "}
+                <span style={{ color: "#aaa" }}>实际装配坐标:</span>{" "}
                 <span style={{ color: "#a7ffeb", fontWeight: "bold" }}>
                   ({place.appliedPosition.x.toFixed(1)}, {place.appliedPosition.y.toFixed(1)}, {place.appliedPosition.z.toFixed(1)}) mm
                 </span>
               </div>
             </div>
           ) : (
-            <div style={{ color: "#777", fontSize: 12 }}>Pending placement step...</div>
+            <div style={{ color: "#777", fontSize: 12 }}>等待装配落位步骤...</div>
           )}
         </div>
 
@@ -539,28 +555,28 @@ export function EngineeringAlignmentPanel({
           }}
         >
           <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, borderBottom: "1px solid #2a2a35", paddingBottom: 6 }}>
-            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>STAGE 4: Geometry Residual Evaluation (G4-4D-R1)</strong>
+            <strong style={{ color: "#4fc3f7", fontSize: 13 }}>阶段 4: 几何残差评估 (G4-4D-R1)</strong>
             <span style={{ fontSize: 11, color: ev?.gateEligible ? "#69f0ae" : "#ff5252", fontWeight: "bold" }}>
-              {ev ? (ev.gateEligible ? "GATE PASSED" : "REFERENCE INSUFFICIENT") : "PENDING"}
+              {ev ? (ev.gateEligible ? "通过准入准则 (PASSED)" : "参考度不足 (INSUFFICIENT)") : "待执行"}
             </span>
           </div>
 
           {ev ? (
             <div style={{ fontSize: 12, display: "grid", gap: 6 }}>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#aaa" }}>Overall Score:</span>
+                <span style={{ color: "#aaa" }}>综合评分:</span>
                 <span style={{ color: "#69f0ae", fontWeight: "bold", fontSize: 14 }}>
                   {ev.overallScore} / 100 ({ev.qualityLevel})
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#aaa" }}>Ref Adequacy:</span>
+                <span style={{ color: "#aaa" }}>参考度评估:</span>
                 <span style={{ color: ev.referenceAdequacy === "PROXY_ONLY" ? "#ffab40" : "#a7ffeb", fontWeight: "bold" }}>
-                  {ev.referenceAdequacy}
+                  {ev.referenceAdequacy === "PROXY_ONLY" ? "仅代理参考 (PROXY_ONLY)" : ev.referenceAdequacy}
                 </span>
               </div>
               <div style={{ display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: "#aaa" }}>Cross-View Consistency:</span>
+                <span style={{ color: "#aaa" }}>跨视图一致性:</span>
                 <span style={{ color: "#e040fb", fontWeight: "bold" }}>
                   {ev.crossViewConsistency}%
                 </span>
@@ -580,12 +596,12 @@ export function EngineeringAlignmentPanel({
                     marginTop: 4,
                   }}
                 >
-                  ⚠️ PROXY REFERENCE ONLY - NOT ELIGIBLE FOR GATE ACCEPTANCE
+                  ⚠️ 仅限代理参考网格 - 未经人工核准不能作为生产真值
                 </div>
               )}
             </div>
           ) : (
-            <div style={{ color: "#777", fontSize: 12 }}>Pending geometry residual evaluation...</div>
+            <div style={{ color: "#777", fontSize: 12 }}>等待几何残差评估步骤...</div>
           )}
         </div>
       </div>
@@ -655,21 +671,21 @@ function ContourCanvas2D({
         {/* Legend */}
         <rect x={10} y={170} width={10} height={10} fill="#4fc3f7" />
         <text x={25} y={179} fill="#4fc3f7" fontSize={10}>
-          AI Mesh Silhouette
+          AI 网格投影轮廓
         </text>
 
         <rect x={150} y={170} width={10} height={10} fill="none" stroke="#ffd54f" strokeWidth={1.5} />
         <text x={165} y={179} fill="#ffd54f" fontSize={10}>
-          FES Target Contour
+          FES 工程目标轮廓
         </text>
       </svg>
 
       {viewRes && (
         <div style={{ display: "flex", justifyContent: "center", gap: 16, fontSize: 11, color: "#ccc", marginTop: 8 }}>
-          <span>IoU: <strong style={{ color: "#a7ffeb" }}>{viewRes.silhouetteIoU}</strong></span>
-          <span>Mean Error: <strong style={{ color: "#ff8a80" }}>{viewRes.meanSymmetricContourDistanceMm ?? viewRes.meanContourDistanceMm}mm</strong></span>
-          <span>P95 Error: <strong style={{ color: "#ff8a80" }}>{viewRes.p95ContourDistanceMm}mm</strong></span>
-          <span>Max Error: <strong style={{ color: "#ff8a80" }}>{viewRes.maxContourDistanceMm}mm</strong></span>
+          <span>交并比 IoU: <strong style={{ color: "#a7ffeb" }}>{viewRes.silhouetteIoU}</strong></span>
+          <span>平均对称误差: <strong style={{ color: "#ff8a80" }}>{viewRes.meanSymmetricContourDistanceMm ?? viewRes.meanContourDistanceMm}mm</strong></span>
+          <span>P95 误差: <strong style={{ color: "#ff8a80" }}>{viewRes.p95ContourDistanceMm}mm</strong></span>
+          <span>最大误差: <strong style={{ color: "#ff8a80" }}>{viewRes.maxContourDistanceMm}mm</strong></span>
         </div>
       )}
     </div>

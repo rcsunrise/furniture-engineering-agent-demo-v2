@@ -2,7 +2,7 @@ import {
   EngineeringAlignmentSession,
   EngineeringAlignmentSessionSchema,
 } from "../../../shared/alignmentSession.js";
-import { FurnitureEngineering } from "../../../shared/fes.js";
+import { FurnitureEngineeringData } from "../../../shared/fes.js";
 import { MeshBounds, MeshAxisMapping } from "../../../shared/meshAlignment.js";
 import { computeNormalizationTransform } from "../meshAlignment/axisNormalizer.js";
 import { computeDimensionAlignment } from "../meshAlignment/dimensionAligner.js";
@@ -11,7 +11,7 @@ import { evaluateGeometryResidual } from "../geometryEvaluation/geometryEvaluato
 
 export interface RunAlignmentOrchestratorParams {
   session: EngineeringAlignmentSession;
-  fes?: FurnitureEngineering | null;
+  fes?: FurnitureEngineeringData | null;
   rawBounds?: MeshBounds;
   axisMapping?: MeshAxisMapping;
 }
@@ -138,7 +138,7 @@ export function runAlignmentPipeline(
       component: targetComponent,
       meshOptions: {
         bounds: normResult.diagnostic.normalizedBounds || rawBounds,
-        matrix: placeResult.matrix,
+        engineeringMatrix: placeResult.matrix,
       },
     });
 

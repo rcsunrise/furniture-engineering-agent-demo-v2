@@ -214,7 +214,11 @@ export function CadCanvas({
 
           {/* View Selector Buttons */}
           <div style={{ display: "flex", gap: 4, background: "#18181c", padding: 2, borderRadius: 6, border: "1px solid #33333e" }}>
-            {(["front", "side", "top"] as const).map((v) => {
+            {([
+              { v: "front", label: "正视 FRONT" },
+              { v: "side", label: "侧视 SIDE" },
+              { v: "top", label: "俯视 TOP" },
+            ] as const).map(({ v, label }) => {
               const isActive = (doc.view || currentView) === v;
               return (
                 <button
@@ -231,14 +235,14 @@ export function CadCanvas({
                     cursor: "pointer",
                   }}
                 >
-                  {v.toUpperCase()}
+                  {label}
                 </button>
               );
             })}
           </div>
 
           <span style={{ fontSize: 13, color: "#aaa" }}>
-            SKU: <strong style={{ color: "#fff" }}>{doc.sourceSku}</strong>
+            款号 (SKU): <strong style={{ color: "#fff" }}>{doc.sourceSku}</strong>
           </span>
           {(() => {
             const pathEntities = doc.entities.filter((e) => e.type === "path");
@@ -251,10 +255,10 @@ export function CadCanvas({
             const isAllWorkbook = pathEntities.length > 0 && fallbackCount === 0;
 
             const badgeText = isAllWorkbook
-              ? "WORKBOOK GEOMETRY"
+              ? "工程表真值几何 (WORKBOOK)"
               : fallbackCount === pathEntities.length
-              ? "Proxy Fallback"
-              : "Mixed Sources";
+              ? "代理降级几何 (FALLBACK)"
+              : "混合数据源 (MIXED)";
 
             const badgeStyle = isAllWorkbook
               ? { background: "#1b5e20", color: "#a5d6a7", border: "1px solid #2e7d32" }
@@ -276,7 +280,7 @@ export function CadCanvas({
                   {badgeText}
                 </span>
                 <span style={{ fontSize: 11, color: "#888" }}>
-                  Profiles: <strong style={{ color: "#a5d6a7" }}>{wbProfileCount}</strong> | Lofts: <strong style={{ color: "#a5d6a7" }}>{wbLoftCount}</strong> | Soft: <strong style={{ color: "#a5d6a7" }}>{wbSoftCount}</strong> | Box: <strong style={{ color: "#e0e0e0" }}>{boxCount}</strong> | Fallback: <strong style={{ color: fallbackCount === 0 ? "#81c784" : "#ff8a80" }}>{fallbackCount}</strong>
+                  截面轮廓: <strong style={{ color: "#a5d6a7" }}>{wbProfileCount}</strong> | 放样体: <strong style={{ color: "#a5d6a7" }}>{wbLoftCount}</strong> | 软体曲面: <strong style={{ color: "#a5d6a7" }}>{wbSoftCount}</strong> | 基础立方盒: <strong style={{ color: "#e0e0e0" }}>{boxCount}</strong> | 降级数: <strong style={{ color: fallbackCount === 0 ? "#81c784" : "#ff8a80" }}>{fallbackCount}</strong>
                 </span>
               </div>
             );
@@ -297,7 +301,7 @@ export function CadCanvas({
               fontSize: 12,
             }}
           >
-            Ref Overlay: {showReferenceOverlay ? "ON" : "OFF"}
+            参考叠加: {showReferenceOverlay ? "开启" : "关闭"}
           </button>
           <button
             onClick={fitToView}
@@ -311,7 +315,7 @@ export function CadCanvas({
               fontSize: 12,
             }}
           >
-            Fit to View
+            全屏居中
           </button>
           <button
             onClick={() => setZoom((z) => Math.min(z * 1.25, 5.0))}
@@ -325,7 +329,7 @@ export function CadCanvas({
               fontSize: 12,
             }}
           >
-            Zoom +
+            放大 +
           </button>
           <button
             onClick={() => setZoom((z) => Math.max(z / 1.25, 0.2))}
@@ -339,10 +343,10 @@ export function CadCanvas({
               fontSize: 12,
             }}
           >
-            Zoom -
+            缩小 -
           </button>
           <span style={{ fontSize: 12, color: "#888", marginLeft: 4 }}>
-            Zoom: {Math.round(zoom * 100)}%
+            缩放: {Math.round(zoom * 100)}%
           </span>
 
           {/* CAD Export / Download Buttons */}
@@ -731,10 +735,10 @@ export function CadCanvas({
         }}
       >
         <span>
-          Overall Dimensions: Width {doc.bounds.maxX - doc.bounds.minX} mm × Height {doc.bounds.maxY - doc.bounds.minY} mm
+          整体外形尺寸: 宽 {doc.bounds.maxX - doc.bounds.minX} mm × 高 {doc.bounds.maxY - doc.bounds.minY} mm
         </span>
         <span>
-          Entities: {doc.entities.length} | Drag mouse to Pan, Scroll to Zoom
+          图元对象数: {doc.entities.length} 个 | 鼠标按住拖拽平移，滚轮缩放
         </span>
       </div>
     </div>
