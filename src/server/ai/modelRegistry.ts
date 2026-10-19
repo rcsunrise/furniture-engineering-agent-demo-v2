@@ -22,55 +22,69 @@ export interface ResolvedModelResult {
 const MODEL_REGISTRY: Record<string, Record<AICapability, Record<string, string>>> = {
   gemini: {
     vision: {
-      "gemini-2.5-flash": "gemini-2.5-flash",
+      "gemini-3.8-flash": "gemini-3.8-flash",
       "gemini-3.6-flash": "gemini-3.6-flash",
+      "gemini-2.5-flash": "gemini-2.5-flash",
       "gemini-2.5-pro": "gemini-2.5-pro",
       "gemini-1.5-pro": "gemini-1.5-pro",
       "gemini-2.0-flash": "gemini-2.0-flash",
-      default: process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash",
+      default: process.env.GEMINI_VISION_MODEL || "gemini-3.8-flash",
     },
     reasoning: {
+      "gemini-3.8-flash": "gemini-3.8-flash",
       "gemini-3.6-flash": "gemini-3.6-flash",
       "gemini-2.5-flash": "gemini-2.5-flash",
       "gemini-2.5-pro": "gemini-2.5-pro",
-      default: "gemini-3.6-flash",
+      default: "gemini-3.8-flash",
     },
     image: {
       "imagen-3.0-generate-002": "imagen-3.0-generate-002",
+      "gemini-nano-banana-2.1": "gemini-nano-banana-2.1",
       default: "imagen-3.0-generate-002",
     },
   },
   routerhub: {
     vision: {
-      "gemini-3.6-flash": "google/gemini-3.6-flash",
-      "gemini-2.5-flash": "google/gemini-2.5-flash",
-      "gemini-2.5-pro": "google/gemini-2.5-pro",
-      "gemini-1.5-pro": "google/gemini-1.5-pro",
-      "gpt-4o": "openai/gpt-4o",
-      "claude-3-5-sonnet": "anthropic/claude-3-5-sonnet",
-      default: process.env.ROUTERHUB_VISION_MODEL || "google/gemini-2.5-flash",
+      "gemini-3.8-flash": "gemini-3.8-flash",
+      "gemini-3.6-flash": "gemini-3.6-flash",
+      "gemini-2.5-flash": "gemini-2.5-flash",
+      "gemini-2.5-pro": "gemini-2.5-pro",
+      "gpt-6.1-sol": "gpt-6.1-sol",
+      "gpt-4o": "gpt-4o",
+      "claude-3-5-sonnet": "claude-3-5-sonnet",
+      default: process.env.ROUTERHUB_VISION_MODEL || "gemini-3.8-flash",
     },
     reasoning: {
-      "openai/gpt-5.6-sol": "openai/gpt-5.6-sol",
-      "gemini-3.6-flash": "google/gemini-3.6-flash",
-      "gemini-2.5-flash": "google/gemini-2.5-flash",
-      default: process.env.ROUTERHUB_REASON_MODEL || "openai/gpt-5.6-sol",
+      "gpt-6.1-sol": "gpt-6.1-sol",
+      "gpt-5.6-sol": "gpt-5.6-sol",
+      "gemini-3.8-flash": "gemini-3.8-flash",
+      "gemini-3.6-flash": "gemini-3.6-flash",
+      "gemini-2.5-flash": "gemini-2.5-flash",
+      "gemini-2.5-pro": "gemini-2.5-pro",
+      default: process.env.ROUTERHUB_REASON_MODEL || "gpt-6.1-sol",
     },
     image: {
-      default: "dall-e-3",
+      "gemini-nano-banana-2.1": "gemini-nano-banana-2.1",
+      "flux-2-pro": "flux-2-pro",
+      "sd-2.5": "sd-2.5",
+      default: "gemini-nano-banana-2.1",
     },
   },
   vectorengine: {
     vision: {
-      "gemini-3.6-flash": "ve-gemini-3.6-flash",
-      "gemini-2.5-flash": "ve-gemini-2.5-flash",
-      default: process.env.VECTORENGINE_VISION_MODEL || "ve-gemini-2.5-flash",
+      "gemini-3.8-flash": "gemini-3.8-flash",
+      "gemini-3.6-flash": "gemini-3.6-flash",
+      "gemini-2.5-flash": "gemini-2.5-flash",
+      default: process.env.VECTORENGINE_VISION_MODEL || "gemini-3.8-flash",
     },
     reasoning: {
-      default: process.env.VECTORENGINE_REASON_MODEL || "ve-reason-v1",
+      "gpt-6.1-sol": "gpt-6.1-sol",
+      "gemini-3.8-flash": "gemini-3.8-flash",
+      default: process.env.VECTORENGINE_REASON_MODEL || "gpt-6.1-sol",
     },
     image: {
-      default: "ve-image-v1",
+      "gemini-nano-banana-2.1": "gemini-nano-banana-2.1",
+      default: "gemini-nano-banana-2.1",
     },
   },
 };
@@ -80,15 +94,10 @@ const MODEL_REGISTRY: Record<string, Record<AICapability, Record<string, string>
  * Throws VISION_MODEL_UNSUPPORTED or VISION_MODEL_UNVERIFIED if unmapped or unsupported.
  */
 export function resolveVisionModel(provider: string, requestedModel?: string): ResolvedModelResult {
-  const normProvider = (provider || process.env.DEFAULT_VISION_PROVIDER || "gemini").toLowerCase();
-  const reqModel = requestedModel || process.env.GEMINI_VISION_MODEL || "gemini-2.5-flash";
+  const normProvider = (provider || process.env.DEFAULT_VISION_PROVIDER || "routerhub").toLowerCase();
+  const reqModel = requestedModel || process.env.ROUTERHUB_VISION_MODEL || process.env.GEMINI_VISION_MODEL || "gemini-3.8-flash";
 
-  const providerMap = MODEL_REGISTRY[normProvider];
-  if (!providerMap) {
-    const err: any = new Error(`[VISION_MODEL_UNSUPPORTED] Provider '${normProvider}' is unsupported for vision capabilities.`);
-    err.code = "VISION_MODEL_UNSUPPORTED";
-    throw err;
-  }
+  const providerMap = MODEL_REGISTRY[normProvider] || MODEL_REGISTRY.routerhub;
 
   const visionMap = providerMap.vision;
   let resolved = visionMap[reqModel] || visionMap[reqModel.toLowerCase()];
@@ -103,11 +112,10 @@ export function resolveVisionModel(provider: string, requestedModel?: string): R
 
   if (!resolved) {
     if (!requestedModel) {
-      resolved = visionMap.default;
+      resolved = visionMap.default || "gemini-3.8-flash";
     } else {
-      const err: any = new Error(`[VISION_MODEL_UNSUPPORTED] Vision model '${reqModel}' is unsupported for provider '${normProvider}'. Supported models: ${Object.keys(visionMap).filter(k => k !== "default").join(", ")}`);
-      err.code = "VISION_MODEL_UNSUPPORTED";
-      throw err;
+      // Support custom user-configured models as transparent passthrough
+      resolved = reqModel;
     }
   }
 

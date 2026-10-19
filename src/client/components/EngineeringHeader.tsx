@@ -1,4 +1,5 @@
 import React from "react";
+import { Settings } from "lucide-react";
 import { LocalAiStatusBadge } from "./LocalAiStatusBadge.js";
 
 export type Tab = "REF_G3" | "LOCAL_AI" | "ALIGNMENT" | "PROFILE_RECON" | "DATA" | "CAD" | "3D" | "AGENT" | "SKILLS";
@@ -21,9 +22,10 @@ interface EngineeringHeaderProps {
   status: string;
   uploadState: "idle" | "uploading" | "success" | "error";
   meshJobStatus?: string | null;
+  onOpenAiSettings?: () => void;
 }
 
-export function EngineeringHeader({ activeTab, onSelectTab, status, uploadState, meshJobStatus }: EngineeringHeaderProps) {
+export function EngineeringHeader({ activeTab, onSelectTab, status, uploadState, meshJobStatus, onOpenAiSettings }: EngineeringHeaderProps) {
   return (
     <header
       style={{
@@ -102,7 +104,31 @@ export function EngineeringHeader({ activeTab, onSelectTab, status, uploadState,
           );
         })}
       </div>
-      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+        {onOpenAiSettings && (
+          <button
+            type="button"
+            onClick={onOpenAiSettings}
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              padding: "5px 12px",
+              background: "#262635",
+              color: "#4fc3f7",
+              border: "1px solid #3d3d52",
+              borderRadius: 5,
+              cursor: "pointer",
+              fontSize: 12,
+              fontWeight: 600,
+              transition: "all 0.15s ease",
+            }}
+            title="配置外部 AI 模型与 API 密钥 (词元流墟 / Google AI Studio)"
+          >
+            <Settings size={14} />
+            <span>AI 设置</span>
+          </button>
+        )}
         <LocalAiStatusBadge />
         <span
           style={{

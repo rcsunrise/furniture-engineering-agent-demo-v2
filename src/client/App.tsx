@@ -9,12 +9,14 @@ import { CadCanvas } from "./components/CadCanvas.js";
 import { AssemblyView } from "./components/AssemblyView.js";
 import { GeometryReconstructionPanel } from "./components/GeometryReconstructionPanel.js";
 import { SkillsView } from "./components/skills/SkillsView.js";
+import { AiSettingsModal } from "./components/AiSettingsModal.js";
 import { useEngineeringData } from "./hooks/useEngineeringData.js";
 import { useAgentPlanner } from "./hooks/useAgentPlanner.js";
 import { EngineeringAlignmentSession } from "../shared/alignmentSession.js";
 
 export function App() {
   const [tab, setTab] = useState<Tab>("DATA");
+  const [isAiSettingsOpen, setIsAiSettingsOpen] = useState(false);
   const [aiReferenceMeshUrl, setAiReferenceMeshUrl] = useState<string | null>(null);
   const [aiReferenceArtifact, setAiReferenceArtifact] = useState<any | null>(null);
   const [activeAlignmentSession, setActiveAlignmentSession] = useState<EngineeringAlignmentSession | null>(null);
@@ -138,6 +140,12 @@ export function App() {
         status={eng.status}
         uploadState={eng.uploadState}
         meshJobStatus={meshJobStatus}
+        onOpenAiSettings={() => setIsAiSettingsOpen(true)}
+      />
+
+      <AiSettingsModal
+        isOpen={isAiSettingsOpen}
+        onClose={() => setIsAiSettingsOpen(false)}
       />
 
       <main

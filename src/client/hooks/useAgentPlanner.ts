@@ -15,7 +15,6 @@ export function useAgentPlanner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           provider: "routerhub",
-          model: "gemini-3.6-flash",
           reasoning: "medium",
           input: {
             userInstruction: prompt,

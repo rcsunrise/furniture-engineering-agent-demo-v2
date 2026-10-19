@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { recordCallTelemetry, type CallTelemetry } from "./telemetry.js";
+import { getRuntimeAiConfig } from "./runtimeAiConfig.js";
 
 export type ReasonProvider = "vectorengine" | "routerhub" | "gemini";
 
@@ -33,7 +34,8 @@ export interface UnifiedReasoningResponse {
  * Standardized AI Reasoning Router with Multi-Tier Telemetry, Fast Timeouts & No-Silent-Fallback
  */
 export async function runReasoning(req: UnifiedReasoningRequest): Promise<UnifiedReasoningResponse> {
-  const primaryProvider = req.provider ?? (process.env.DEFAULT_REASON_PROVIDER as ReasonProvider) ?? "routerhub";
+  const cfg = getRuntimeAiConfig();
+  const primaryProvider = req.provider ?? (cfg.provider as ReasonProvider) ?? (process.env.DEFAULT_REASON_PROVIDER as ReasonProvider) ?? "routerhub";
   const requestedModel = req.model || getDefaultModelForProvider(primaryProvider);
   const allowFallback = req.allowFallback ?? true;
 
@@ -194,11 +196,12 @@ async function callRouterHub(
   resolvedModel: string,
   fallbackMeta?: { fallbackUsed: boolean; fallbackInfo: CallTelemetry["fallbackInfo"] }
 ): Promise<UnifiedReasoningResponse> {
-  const base = process.env.ROUTERHUB_BASE_URL || "https://api.routerhub.ai";
-  const key = process.env.ROUTERHUB_API_KEY;
-  if (!key) throw new Error("ROUTERHUB_API_KEY environment variable is missing");
+  const cfg = getRuntimeAiConfig();
+  const base = cfg.baseUrl || process.env.ROUTERHUB_BASE_URL || "https://api.tiantoken.com";
+  const key = cfg.apiKey || process.env.ROUTERHUB_API_KEY;
+  if (!key) throw new Error("ROUTERHUB_API_KEY is missing (请在 AI 设置中配置 API 密钥)");
 
-  return postResponsesAdapter("routerhub", `${base}/v1/responses`, key, requestedModel, resolvedModel, req, fallbackMeta);
+  return postChatCompletionsAdapter("routerhub", base, key, requestedModel, resolvedModel, req, fallbackMeta);
 }
 
 async function callVectorEngine(
@@ -207,27 +210,64 @@ async function callVectorEngine(
   resolvedModel: string,
   fallbackMeta?: { fallbackUsed: boolean; fallbackInfo: CallTelemetry["fallbackInfo"] }
 ): Promise<UnifiedReasoningResponse> {
-  const base = process.env.VECTORENGINE_BASE_URL || "https://api.vectorengine.ai";
-  const key = process.env.VECTORENGINE_API_KEY;
-  if (!key) throw new Error("VECTORENGINE_API_KEY environment variable is missing");
+  const cfg = getRuntimeAiConfig();
+  const base = cfg.baseUrl || process.env.VECTORENGINE_BASE_URL || "https://api.tiantoken.com";
+  const key = cfg.apiKey || process.env.VECTORENGINE_API_KEY;
+  if (!key) throw new Error("VECTORENGINE_API_KEY is missing (请在 AI 设置中配置 API 密钥)");
 
-  return postResponsesAdapter("vectorengine", `${base}/v1/responses`, key, requestedModel, resolvedModel, req, fallbackMeta);
+  return postChatCompletionsAdapter("vectorengine", base, key, requestedModel, resolvedModel, req, fallbackMeta);
 }
 
-async function postResponsesAdapter(
+async function postChatCompletionsAdapter(
   provider: "routerhub" | "vectorengine",
-  url: string,
+  baseUrl: string,
   key: string,
   requestedModel: string,
   resolvedModel: string,
   req: UnifiedReasoningRequest,
   fallbackMeta?: { fallbackUsed: boolean; fallbackInfo: CallTelemetry["fallbackInfo"] }
 ): Promise<UnifiedReasoningResponse> {
+  const cleanBase = baseUrl.replace(/\/+$/, "");
+  const chatUrl = cleanBase.endsWith("/v1")
+    ? `${cleanBase}/chat/completions`
+    : `${cleanBase}/v1/chat/completions`;
+
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 2000);
+  const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s timeout for complex engineering reasoning & vision
 
   try {
-    const response = await fetch(url, {
+    const messages: any[] = [];
+    if (req.instructions) {
+      messages.push({
+        role: "system",
+        content: req.instructions,
+      });
+    }
+
+    const textInput = typeof req.input === "string" ? req.input : JSON.stringify(req.input, null, 2);
+
+    if (req.images && req.images.length > 0) {
+      const userContent: any[] = [
+        { type: "text", text: textInput },
+      ];
+      for (const img of req.images) {
+        if (img.label) {
+          userContent.push({ type: "text", text: `[视角说明: ${img.label}]` });
+        }
+        const dataUrl = img.data.startsWith("data:")
+          ? img.data
+          : `data:${img.mimeType};base64,${img.data}`;
+        userContent.push({
+          type: "image_url",
+          image_url: { url: dataUrl },
+        });
+      }
+      messages.push({ role: "user", content: userContent });
+    } else {
+      messages.push({ role: "user", content: textInput });
+    }
+
+    const response = await fetch(chatUrl, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${key}`,
@@ -235,9 +275,8 @@ async function postResponsesAdapter(
       },
       body: JSON.stringify({
         model: resolvedModel,
-        instructions: req.instructions,
-        input: JSON.stringify(req.input),
-        reasoning: { effort: req.reasoning ?? "medium" },
+        messages,
+        max_tokens: 4096,
       }),
       signal: controller.signal,
     });
@@ -306,8 +345,8 @@ async function postResponsesAdapter(
 function extractText(raw: any): string {
   if (typeof raw === "string") return raw;
   return (
-    raw?.output_text ??
     raw?.choices?.[0]?.message?.content ??
+    raw?.output_text ??
     raw?.output
       ?.flatMap?.((x: any) => x?.content || [])
       .map((c: any) => c?.text)
@@ -318,13 +357,14 @@ function extractText(raw: any): string {
 }
 
 function getDefaultModelForProvider(provider: ReasonProvider): string {
+  const cfg = getRuntimeAiConfig();
   if (provider === "vectorengine") {
-    return process.env.VECTORENGINE_REASON_MODEL || "gemini-2.5-flash";
+    return cfg.reasonModel || process.env.VECTORENGINE_REASON_MODEL || "gpt-6.1-sol";
   }
   if (provider === "routerhub") {
-    return process.env.ROUTERHUB_REASON_MODEL || "gemini-2.5-flash";
+    return cfg.reasonModel || process.env.ROUTERHUB_REASON_MODEL || "gpt-6.1-sol";
   }
-  return "gemini-2.5-flash";
+  return cfg.reasonModel || "gpt-6.1-sol";
 }
 
 function getFallbackChain(primary: ReasonProvider): ReasonProvider[] {

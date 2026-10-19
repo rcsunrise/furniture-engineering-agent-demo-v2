@@ -7,6 +7,11 @@ import { buildFrontView, buildCadView } from "../cad.js";
 import { buildAssembly } from "../assembly.js";
 import { validateEngineeringData } from "../validate.js";
 import { runReasoning } from "../ai/provider.js";
+import {
+  getRuntimeAiConfig,
+  updateRuntimeAiConfig,
+  testAiConnection,
+} from "../ai/runtimeAiConfig.js";
 import { FurnitureEngineeringSchema } from "../../shared/fes.js";
 import { alignmentRouter } from "./alignmentRouter.js";
 import { geometryReconstructionRouter } from "./geometryReconstruction.js";
@@ -606,13 +611,85 @@ engineeringRouter.get("/engineering/sessions/:sessionId/diagnostics", (req, res)
   });
 });
 
-engineeringRouter.post("/agent/plan",async(req,res)=>{
-  try{
+engineeringRouter.post("/agent/plan", async (req, res) => {
+  try {
     res.json(await runReasoning({
-      provider:req.body.provider,model:req.body.model,reasoning:req.body.reasoning??"medium",
-      instructions:"You are a furniture engineering orchestrator. Never invent dimensions. Return a concise execution plan and explicitly list missingEngineeringData.",
-      input:req.body.input
+      provider: req.body.provider,
+      model: req.body.model,
+      reasoning: req.body.reasoning ?? "medium",
+      instructions: "You are a furniture engineering orchestrator. Never invent dimensions. Return a concise execution plan and explicitly list missingEngineeringData.",
+      input: req.body.input,
     }));
-  }catch(e:any){res.status(502).json({error:e?.message||String(e)})}
+  } catch (e: any) {
+    res.status(502).json({ error: e?.message || String(e) });
+  }
 });
+
+// GET /api/engineering/config/ai - Retrieve active AI configuration
+engineeringRouter.get("/config/ai", (_req, res) => {
+  const cfg = getRuntimeAiConfig();
+  const maskedKey = cfg.apiKey
+    ? (cfg.apiKey.length > 8 ? `${cfg.apiKey.slice(0, 4)}...${cfg.apiKey.slice(-4)}` : "********")
+    : "";
+  res.json({
+    ok: true,
+    config: {
+      provider: cfg.provider,
+      baseUrl: cfg.baseUrl,
+      reasonModel: cfg.reasonModel,
+      visionModel: cfg.visionModel,
+      imageModel: cfg.imageModel,
+      apiKeyMasked: maskedKey,
+      hasKey: Boolean(cfg.apiKey),
+      updatedAt: cfg.updatedAt,
+    },
+  });
+});
+
+// POST /api/engineering/config/ai - Update and activate AI configuration
+engineeringRouter.post("/config/ai", (req, res) => {
+  try {
+    const { provider, baseUrl, apiKey, reasonModel, visionModel, imageModel } = req.body || {};
+    const updates: any = {};
+    if (provider) updates.provider = provider;
+    if (baseUrl) updates.baseUrl = String(baseUrl).trim();
+    if (apiKey !== undefined && String(apiKey).trim() !== "") updates.apiKey = String(apiKey).trim();
+    if (reasonModel) updates.reasonModel = String(reasonModel).trim();
+    if (visionModel) updates.visionModel = String(visionModel).trim();
+    if (imageModel) updates.imageModel = String(imageModel).trim();
+
+    const updated = updateRuntimeAiConfig(updates);
+    const maskedKey = updated.apiKey
+      ? (updated.apiKey.length > 8 ? `${updated.apiKey.slice(0, 4)}...${updated.apiKey.slice(-4)}` : "********")
+      : "";
+
+    res.json({
+      ok: true,
+      message: "AI 配置已更新生效",
+      config: {
+        provider: updated.provider,
+        baseUrl: updated.baseUrl,
+        reasonModel: updated.reasonModel,
+        visionModel: updated.visionModel,
+        imageModel: updated.imageModel,
+        apiKeyMasked: maskedKey,
+        hasKey: Boolean(updated.apiKey),
+        updatedAt: updated.updatedAt,
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ ok: false, error: err.message || "更新 AI 配置失败" });
+  }
+});
+
+// POST /api/engineering/config/ai/test - Test connection
+engineeringRouter.post("/config/ai/test", async (req, res) => {
+  try {
+    const result = await testAiConnection(req.body || {});
+    res.json(result);
+  } catch (err: any) {
+    res.status(500).json({ ok: false, message: `测试发生异常: ${err.message || String(err)}`, latencyMs: 0 });
+  }
+});
+
 

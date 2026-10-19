@@ -26,7 +26,7 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
   const [knownD, setKnownD] = useState(1050);
   const [knownH, setKnownH] = useState(850);
   const [provider, setProvider] = useState<string>("routerhub");
-  const [model, setModel] = useState<string>("gemini-3.6-flash");
+  const [model, setModel] = useState<string>("gemini-3.8-flash");
 
   // Reference Image Slots
   const [heroImage, setHeroImage] = useState<ImageSlotState>({ file: null, previewUrl: null });
@@ -53,9 +53,26 @@ export const ReferenceObservationView: React.FC<ReferenceObservationViewProps> =
   const sideInputRef = useRef<HTMLInputElement>(null);
   const topInputRef = useRef<HTMLInputElement>(null);
 
-  // Auto load benchmark sample reference images on initial mount
+  // Auto load benchmark sample reference images and active AI config on initial mount
   useEffect(() => {
     loadBenchmarkSampleImages();
+    async function syncAiConfig() {
+      try {
+        const res = await fetch("/api/engineering/config/ai");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.config?.visionModel) {
+            setModel(data.config.visionModel);
+          }
+          if (data?.config?.provider) {
+            setProvider(data.config.provider);
+          }
+        }
+      } catch (e) {
+        // Fall back to default
+      }
+    }
+    syncAiConfig();
   }, []);
 
   // Helper to generate benchmark sample PNG image blobs
